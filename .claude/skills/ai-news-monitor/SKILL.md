@@ -63,7 +63,7 @@ Use the template from `references/email_template.html`:
 
 Use `mcp__gmail__send_email`:
 ```
-to: ["william.huynh12@gmail.com"]
+to: ["william.huynh12@gmail.com", "will@theoc.ai"]
 subject: "AI News Digest - [Date]"
 body: "AI News from X - See HTML version"
 htmlBody: [generated HTML from template]
@@ -89,7 +89,7 @@ mimeType: "text/html"
 - **Model:** `grok-4-1-fast-reasoning` (with x_search enabled)
 - **Endpoint:** `https://api.x.ai/v1/responses` (NOT chat/completions)
 - **Time Range:** Last 24 hours
-- **Recipient:** william.huynh12@gmail.com
+- **Recipients:** william.huynh12@gmail.com, will@theoc.ai
 
 ## Running
 
