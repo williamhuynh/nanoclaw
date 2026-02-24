@@ -73,7 +73,7 @@ export const TIMEZONE =
 export const EMAIL_CHANNEL: EmailChannelConfig = {
   enabled: true,
   triggerMode: 'subject',
-  triggerValue: 'Sky:',
+  triggerValue: '[Sky]',
   contextMode: 'thread',
   pollIntervalMs: 60000,
   replyPrefix: '[Sky] ',

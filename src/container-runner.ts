@@ -97,7 +97,7 @@ function buildVolumeMounts(
   }
 
   // Gmail credentials directory
-  const gmailDir = path.join(homeDir, '.gmail-mcp');
+  const gmailDir = path.join(process.env.HOME || '/root', '.gmail-mcp');
   if (fs.existsSync(gmailDir)) {
     mounts.push({
       hostPath: gmailDir,

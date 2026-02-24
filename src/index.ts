@@ -437,7 +437,7 @@ async function processEmail(email: EmailMessage): Promise<string | null> {
   const contextKey = getContextKey(email);
   const groupFolder = EMAIL_CHANNEL.contextMode === 'single'
     ? MAIN_GROUP_FOLDER
-    : `email/${contextKey}`;
+    : contextKey;
 
   // Ensure group folder exists
   const groupDir = path.join(DATA_DIR, '..', 'groups', groupFolder);

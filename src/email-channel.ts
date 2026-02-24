@@ -160,13 +160,16 @@ class GmailMcpClient {
 const gmailClient = new GmailMcpClient();
 
 function buildSearchQuery(): string {
+  // Use newer_than:1h instead of is:unread for subject mode because
+  // self-sent emails (common for testing) are never marked unread.
+  // DB dedup (isEmailProcessed) prevents reprocessing.
   switch (EMAIL_CHANNEL.triggerMode) {
     case 'label':
       return `label:${EMAIL_CHANNEL.triggerValue} is:unread`;
     case 'address':
       return `to:${EMAIL_CHANNEL.triggerValue} is:unread`;
     case 'subject':
-      return `subject:${EMAIL_CHANNEL.triggerValue} is:unread`;
+      return `subject:${EMAIL_CHANNEL.triggerValue} newer_than:1h`;
   }
 }
 

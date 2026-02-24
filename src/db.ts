@@ -60,6 +60,15 @@ function createSchema(database: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_task_run_logs ON task_run_logs(task_id, run_at);
 
+    CREATE TABLE IF NOT EXISTS processed_emails (
+      message_id TEXT PRIMARY KEY,
+      thread_id TEXT NOT NULL,
+      sender TEXT NOT NULL,
+      subject TEXT,
+      processed_at TEXT NOT NULL,
+      response_sent INTEGER DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS router_state (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -76,17 +85,6 @@ function createSchema(database: Database.Database): void {
       added_at TEXT NOT NULL,
       container_config TEXT,
       requires_trigger INTEGER DEFAULT 1
-    );
-  `);
-
-  database.exec(`
-    CREATE TABLE IF NOT EXISTS processed_emails (
-      message_id TEXT PRIMARY KEY,
-      thread_id TEXT NOT NULL,
-      sender TEXT NOT NULL,
-      subject TEXT,
-      processed_at TEXT NOT NULL,
-      response_sent INTEGER DEFAULT 0
     );
   `);
 
