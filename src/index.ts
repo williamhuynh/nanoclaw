@@ -3,6 +3,8 @@ import path from 'path';
 
 import {
   ASSISTANT_NAME,
+  DATA_DIR,
+  EMAIL_CHANNEL,
   IDLE_TIMEOUT,
   MAIN_GROUP_FOLDER,
   POLL_INTERVAL,
@@ -30,6 +32,9 @@ import {
   setSession,
   storeChatMetadata,
   storeMessage,
+  isEmailProcessed,
+  markEmailProcessed,
+  markEmailResponded,
 } from './db.js';
 import { GroupQueue } from './group-queue.js';
 import { resolveGroupFolderPath } from './group-folder.js';
@@ -38,6 +43,14 @@ import { findChannel, formatMessages, formatOutbound } from './router.js';
 import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
 import { logger } from './logger.js';
+import {
+  searchNewEmails,
+  sendEmailReply,
+  getContextKey,
+  startGmailClient,
+  stopGmailClient,
+  EmailMessage,
+} from './email-channel.js';
 
 // Re-export for backwards compatibility during refactor
 export { escapeXml, formatMessages } from './router.js';
@@ -420,6 +433,105 @@ function ensureContainerSystemRunning(): void {
   cleanupOrphans();
 }
 
+async function processEmail(email: EmailMessage): Promise<string | null> {
+  const contextKey = getContextKey(email);
+  const groupFolder = EMAIL_CHANNEL.contextMode === 'single'
+    ? MAIN_GROUP_FOLDER
+    : `email/${contextKey}`;
+
+  // Ensure group folder exists
+  const groupDir = path.join(DATA_DIR, '..', 'groups', groupFolder);
+  fs.mkdirSync(path.join(groupDir, 'logs'), { recursive: true });
+
+  // Create a virtual registered group for email processing
+  const emailGroup: RegisteredGroup = {
+    name: contextKey,
+    folder: groupFolder,
+    trigger: '',
+    added_at: new Date().toISOString(),
+  };
+
+  const prompt = `You received an email. Read it and compose a reply. Your response will be sent as an email reply, so write it as a proper email response (no subject line needed, just the body).
+
+<email>
+<from>${email.from}</from>
+<subject>${email.subject}</subject>
+<date>${email.date}</date>
+<body>
+${email.body}
+</body>
+</email>`;
+
+  let responseText: string | null = null;
+
+  const result = await runAgent(emailGroup, prompt, `email:${email.from}`, async (output) => {
+    if (output.result) {
+      const raw = typeof output.result === 'string' ? output.result : JSON.stringify(output.result);
+      const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
+      if (text) responseText = text;
+    }
+    // Signal container to exit — email is single-query, no follow-up IPC
+    const ipcInputDir = path.join(DATA_DIR, 'ipc', groupFolder, 'input');
+    fs.mkdirSync(ipcInputDir, { recursive: true });
+    fs.writeFileSync(path.join(ipcInputDir, '_close'), '');
+  });
+
+  if (result === 'success' && responseText) {
+    return responseText;
+  }
+  return null;
+}
+
+async function startEmailLoop(): Promise<void> {
+  if (!EMAIL_CHANNEL.enabled) {
+    logger.info('Email channel disabled');
+    return;
+  }
+
+  try {
+    await startGmailClient();
+  } catch (err) {
+    logger.error({ err }, 'Failed to start Gmail MCP client, email channel disabled');
+    return;
+  }
+
+  logger.info(
+    { triggerMode: EMAIL_CHANNEL.triggerMode, triggerValue: EMAIL_CHANNEL.triggerValue },
+    'Email channel running',
+  );
+
+  while (true) {
+    try {
+      const emails = await searchNewEmails();
+
+      for (const email of emails) {
+        if (isEmailProcessed(email.id)) continue;
+
+        logger.info({ from: email.from, subject: email.subject }, 'Processing email');
+        markEmailProcessed(email.id, email.threadId, email.from, email.subject);
+
+        const response = await processEmail(email);
+
+        if (response) {
+          await sendEmailReply(
+            email.threadId,
+            email.from,
+            email.subject,
+            response,
+            email.id,
+          );
+          markEmailResponded(email.id);
+          logger.info({ to: email.from }, 'Email reply sent');
+        }
+      }
+    } catch (err) {
+      logger.error({ err }, 'Error in email loop');
+    }
+
+    await new Promise(resolve => setTimeout(resolve, EMAIL_CHANNEL.pollIntervalMs));
+  }
+}
+
 async function main(): Promise<void> {
   ensureContainerSystemRunning();
   initDatabase();
@@ -430,6 +542,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received');
     await queue.shutdown(10000);
+    await stopGmailClient();
     for (const ch of channels) await ch.disconnect();
     process.exit(0);
   };
@@ -482,6 +595,9 @@ async function main(): Promise<void> {
   startMessageLoop().catch((err) => {
     logger.fatal({ err }, 'Message loop crashed unexpectedly');
     process.exit(1);
+  });
+  startEmailLoop().catch((err) => {
+    logger.error({ err }, 'Email loop crashed');
   });
 }
 

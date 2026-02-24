@@ -96,6 +96,16 @@ function buildVolumeMounts(
     }
   }
 
+  // Gmail credentials directory
+  const gmailDir = path.join(homeDir, '.gmail-mcp');
+  if (fs.existsSync(gmailDir)) {
+    mounts.push({
+      hostPath: gmailDir,
+      containerPath: '/home/node/.gmail-mcp',
+      readonly: false,  // MCP may need to refresh tokens
+    });
+  }
+
   // Per-group Claude sessions directory (isolated from other groups)
   // Each group gets their own .claude/ to prevent cross-group session access
   const groupSessionsDir = path.join(

@@ -2,6 +2,7 @@ import os from 'os';
 import path from 'path';
 
 import { readEnvFile } from './env.js';
+import { EmailChannelConfig } from './types.js';
 
 // Read config values from .env (falls back to process.env).
 // Secrets are NOT read here — they stay on disk and are loaded only
@@ -67,3 +68,13 @@ export const TRIGGER_PATTERN = new RegExp(
 // Uses system timezone by default
 export const TIMEZONE =
   process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+// Email channel configuration
+export const EMAIL_CHANNEL: EmailChannelConfig = {
+  enabled: true,
+  triggerMode: 'subject',
+  triggerValue: 'Sky:',
+  contextMode: 'thread',
+  pollIntervalMs: 60000,
+  replyPrefix: '[Sky] ',
+};
