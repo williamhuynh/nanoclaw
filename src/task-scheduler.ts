@@ -227,6 +227,22 @@ export function startSchedulerLoop(deps: SchedulerDependencies): void {
           continue;
         }
 
+        // Advance next_run BEFORE enqueuing to prevent the next poll from
+        // re-discovering this task while it's still running (race condition
+        // when task duration exceeds the poll interval).
+        let nextRun: string | null = null;
+        if (currentTask.schedule_type === 'cron') {
+          const interval = CronExpressionParser.parse(currentTask.schedule_value, {
+            tz: TIMEZONE,
+          });
+          nextRun = interval.next().toISOString();
+        } else if (currentTask.schedule_type === 'interval') {
+          const ms = parseInt(currentTask.schedule_value, 10);
+          nextRun = new Date(Date.now() + ms).toISOString();
+        }
+        // 'once' tasks: nextRun stays null, removing them from future polls
+        updateTask(currentTask.id, { next_run: nextRun });
+
         deps.queue.enqueueTask(
           currentTask.chat_jid,
           currentTask.id,
