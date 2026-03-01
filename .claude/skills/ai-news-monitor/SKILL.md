@@ -59,16 +59,44 @@ Use the template from `references/email_template.html`:
 - Executive summary at top
 - Footer with metadata
 
-### 4. Send Email
+### 4. Screenshot the HTML for Slack Forwarding
+
+Generate a PNG screenshot of the email so it can be forwarded to Slack (where HTML doesn't render).
+
+**Step 4a:** Write the final HTML to a temp file:
+```bash
+cat > /tmp/digest.html << 'HTMLEOF'
+[paste the complete HTML here]
+HTMLEOF
+```
+
+**Step 4b:** Open it in agent-browser and take a full-page screenshot:
+```bash
+agent-browser open file:///tmp/digest.html
+agent-browser screenshot --full /tmp/ai-news-digest.png
+agent-browser close
+```
+
+**Step 4c:** Verify the screenshot was created:
+```bash
+ls -la /tmp/ai-news-digest.png
+```
+
+If the screenshot fails for any reason, proceed to step 5 without the attachment — the HTML email is still valuable on its own.
+
+### 5. Send Email with Screenshot Attached
 
 Use `mcp__gmail__send_email`:
 ```
 to: ["william.huynh12@gmail.com", "will@theoc.ai"]
 subject: "AI News Digest - [Date]"
-body: "AI News from X - See HTML version"
+body: "AI News from X - See HTML version. PNG screenshot attached for Slack."
 htmlBody: [generated HTML from template]
 mimeType: "text/html"
+attachments: ["/tmp/ai-news-digest.png"]
 ```
+
+The `attachments` parameter accepts a list of file paths. The Gmail MCP will read the file, base64-encode it, and attach it as a MIME part.
 
 ## Key Accounts Monitored
 
