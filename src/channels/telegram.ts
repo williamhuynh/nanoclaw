@@ -1,4 +1,6 @@
 import https from 'https';
+import fs from 'fs';
+import path from 'path';
 
 import { Bot } from 'grammy';
 
@@ -10,6 +12,7 @@ import {
   OnInboundMessage,
   RegisteredGroup,
 } from '../types.js';
+import { resolveGroupFolderPath } from '../group-folder.js';
 
 export interface TelegramChannelOpts {
   onMessage: OnInboundMessage;
@@ -23,6 +26,62 @@ export class TelegramChannel implements Channel {
   private bot: Bot | null = null;
   private opts: TelegramChannelOpts;
   private botToken: string;
+
+  /**
+   * Download a file from Telegram and save it to the group's media folder.
+   * Returns the container-relative path (e.g. /workspace/group/media/photo-123.jpg)
+   * or null if download fails.
+   */
+  private async downloadMedia(
+    ctx: any,
+    group: RegisteredGroup,
+    type: 'photo' | 'doc',
+  ): Promise<string | null> {
+    try {
+      const file = await ctx.getFile();
+      if (!file.file_path) return null;
+
+      // Determine extension from Telegram's file_path
+      const ext = path.extname(file.file_path) || '.jpg';
+      const msgId = ctx.message.message_id;
+      const filename = `${type}-${msgId}${ext}`;
+
+      // Save to groups/{folder}/media/
+      const groupDir = resolveGroupFolderPath(group.folder);
+      const mediaDir = path.join(groupDir, 'media');
+      fs.mkdirSync(mediaDir, { recursive: true });
+      const destPath = path.join(mediaDir, filename);
+
+      // Download via Telegram Bot API
+      const url = `https://api.telegram.org/file/bot${this.botToken}/${file.file_path}`;
+      await new Promise<void>((resolve, reject) => {
+        https.get(url, (res) => {
+          if (res.statusCode !== 200) {
+            res.resume();
+            reject(new Error(`Download failed: ${res.statusCode}`));
+            return;
+          }
+          const ws = fs.createWriteStream(destPath);
+          res.pipe(ws);
+          ws.on('finish', () => resolve());
+          ws.on('error', (err) => {
+            ws.destroy();
+            fs.unlink(destPath, () => {});
+            reject(err);
+          });
+        }).on('error', reject);
+      });
+
+      // Return container-relative path
+      return `/workspace/group/media/${filename}`;
+    } catch (err) {
+      const safeErr = err instanceof Error
+        ? new Error(err.message.replace(this.botToken, '[REDACTED]'))
+        : err;
+      logger.error({ err: safeErr }, 'Failed to download Telegram media');
+      return null;
+    }
+  }
 
   constructor(botToken: string, opts: TelegramChannelOpts) {
     this.botToken = botToken;
