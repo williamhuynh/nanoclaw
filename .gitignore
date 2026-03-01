@@ -20,10 +20,17 @@ groups/email/*
 !groups/main/CLAUDE.md
 !groups/global/CLAUDE.md
 !groups/email/CLAUDE.md
+!groups/homeschoollms-dev/
+groups/homeschoollms-dev/*
+!groups/homeschoollms-dev/CLAUDE.md
 
 # Secrets
 *.keys.json
 .env
+groups/**/.github-token
+groups/**/.sentry-token
+groups/**/.sentry-org
+groups/**/.sentry-project
 
 # OS
 .DS_Store
