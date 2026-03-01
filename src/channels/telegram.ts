@@ -52,10 +52,10 @@ export class TelegramChannel implements Channel {
       fs.mkdirSync(mediaDir, { recursive: true });
       const destPath = path.join(mediaDir, filename);
 
-      // Download via Telegram Bot API
+      // Download via Telegram Bot API (force IPv4 to match grammY config)
       const url = `https://api.telegram.org/file/bot${this.botToken}/${file.file_path}`;
       await new Promise<void>((resolve, reject) => {
-        https.get(url, (res) => {
+        https.get(url, { agent: new https.Agent({ family: 4 }) }, (res) => {
           if (res.statusCode !== 200) {
             res.resume();
             reject(new Error(`Download failed: ${res.statusCode}`));
@@ -75,10 +75,14 @@ export class TelegramChannel implements Channel {
       // Return container-relative path
       return `/workspace/group/media/${filename}`;
     } catch (err) {
-      const safeErr = err instanceof Error
-        ? new Error(err.message.replace(this.botToken, '[REDACTED]'))
-        : err;
-      logger.error({ err: safeErr }, 'Failed to download Telegram media');
+      const safeMsg = err instanceof Error
+        ? err.message.replaceAll(this.botToken, '[REDACTED]')
+        : String(err);
+      const errCode = (err as NodeJS.ErrnoException)?.code;
+      logger.error(
+        { errCode, errMsg: safeMsg },
+        'Failed to download Telegram media',
+      );
       return null;
     }
   }
