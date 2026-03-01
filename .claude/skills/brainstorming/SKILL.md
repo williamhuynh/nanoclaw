@@ -67,6 +67,7 @@ digraph brainstorming {
 - Propose 2-3 different approaches with trade-offs
 - Present options conversationally with your recommendation and reasoning
 - Lead with your recommended option and explain why
+- Check `docs/ARCHITECTURE.md` for architectural principles that may constrain your approach
 
 **Presenting the design:**
 - Once you believe you understand what you're building, present the design

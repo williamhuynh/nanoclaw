@@ -93,6 +93,7 @@ git commit -m "feat: add specific feature"
 - Exact commands with expected output
 - Reference relevant skills with @ syntax
 - DRY, YAGNI, TDD, frequent commits
+- Check `docs/ARCHITECTURE.md` for architectural constraints
 
 ## Execution Handoff
 

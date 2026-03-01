@@ -7,6 +7,8 @@ description: Add new capabilities or modify NanoClaw behavior. Use when user wan
 
 This skill helps users add capabilities or modify behavior. Use AskUserQuestion to understand what they want before making changes.
 
+**Before proposing changes, read `docs/ARCHITECTURE.md`** for architectural principles (e.g., prefer agent-side tools over core engine changes).
+
 ## Workflow
 
 1. **Understand the request** - Ask clarifying questions
