@@ -76,6 +76,13 @@ When triggered with "Check Sentry for new unresolved issues":
 2. Follow its workflow completely
 3. Report findings to user
 
+### Auto-Fix PR Merge Check
+When triggered with "Check for auto-fix PRs ready to merge":
+1. List open PRs with "Auto-fix:" in the title
+2. For each, check if >1 hour old and no "hold" comment
+3. Merge eligible PRs via the github-pr skill
+4. Notify user of any merges
+
 ## Credentials
 
 These files are in `/workspace/group/` (your working directory):

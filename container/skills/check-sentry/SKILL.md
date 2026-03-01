@@ -67,7 +67,7 @@ Sentry Daily Report:
    Assessment: [Auto-fixable / Needs PR / Needs attention]
 
 [If auto-fixable items exist:]
-I can auto-fix issues 1 and 3. Should I proceed, or would you like to review first?
+I'll auto-fix issues [N] and [N] — PRs will auto-merge in 1 hour. Reply "hold" on any PR to prevent merge.
 ```
 
 ### Step 6: Update Timestamp
@@ -78,8 +78,14 @@ date -u +%Y-%m-%dT%H:%M:%S > /workspace/group/.sentry-last-check
 
 ### Step 7: Act on Assessment
 
-- **Auto-fixable:** If the user has previously approved auto-fixes for this session, invoke the auto-fix skill. Otherwise, wait for user confirmation via Telegram.
+- **Auto-fixable:** Proceed immediately with the auto-fix skill. Clone the repo, make the fix, create the PR per the github-pr skill. The 1-hour hold window is the user's chance to intervene.
 - **Needs PR / Needs attention:** Wait for user instructions.
+
+## Self-Enforcement Checkpoints
+
+1. **Before assessing severity:** "Did I read the full stack trace?" If you only read the title, go back and get the latest event details.
+2. **Before reporting:** "Did I filter by last-check timestamp?" Don't report issues the user has already seen.
+3. **After reporting:** "Did I update the timestamp?" If not, the same issues will appear next check.
 
 ## Error Handling
 

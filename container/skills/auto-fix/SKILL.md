@@ -80,7 +80,7 @@ Everything else, including:
 
 ## Evidence Required
 
-When notifying the user about an auto-fix, always include:
+When notifying the user about an auto-fix via `mcp__nanoclaw__send_message`, always include:
 - What was broken and why
 - What was changed (specific lines/files)
 - Test results (command + output)
