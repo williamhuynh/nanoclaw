@@ -69,3 +69,7 @@ You have access to Gmail via MCP tools:
 - `mcp__gmail__download_attachment` - Download email attachments
 
 Example: "Check my unread emails from today" or "Send an email to john@example.com about the meeting"
+
+## Media Files
+
+When a message contains a file path like `[Photo: /workspace/group/media/...]` or `[Document: filename — /workspace/group/media/...]`, use the Read tool to view the file before responding. The Read tool supports images (JPG, PNG) and documents (PDF, text files).
