@@ -216,15 +216,31 @@ export class TelegramChannel implements Channel {
       });
     };
 
-    this.bot.on('message:photo', (ctx) => storeNonText(ctx, '[Photo]'));
+    this.bot.on('message:photo', async (ctx) => {
+      const chatJid = `tg:${ctx.chat.id}`;
+      const group = this.opts.registeredGroups()[chatJid];
+      if (!group) return;
+
+      const mediaPath = await this.downloadMedia(ctx, group, 'photo');
+      const placeholder = mediaPath ? `[Photo: ${mediaPath}]` : '[Photo]';
+      storeNonText(ctx, placeholder);
+    });
     this.bot.on('message:video', (ctx) => storeNonText(ctx, '[Video]'));
     this.bot.on('message:voice', (ctx) =>
       storeNonText(ctx, '[Voice message]'),
     );
     this.bot.on('message:audio', (ctx) => storeNonText(ctx, '[Audio]'));
-    this.bot.on('message:document', (ctx) => {
+    this.bot.on('message:document', async (ctx) => {
+      const chatJid = `tg:${ctx.chat.id}`;
+      const group = this.opts.registeredGroups()[chatJid];
+      if (!group) return;
+
       const name = ctx.message.document?.file_name || 'file';
-      storeNonText(ctx, `[Document: ${name}]`);
+      const mediaPath = await this.downloadMedia(ctx, group, 'doc');
+      const placeholder = mediaPath
+        ? `[Document: ${name} — ${mediaPath}]`
+        : `[Document: ${name}]`;
+      storeNonText(ctx, placeholder);
     });
     this.bot.on('message:sticker', (ctx) => {
       const emoji = ctx.message.sticker?.emoji || '';
