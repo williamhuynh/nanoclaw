@@ -23,6 +23,9 @@ groups/email/*
 !groups/homeschoollms-dev/
 groups/homeschoollms-dev/*
 !groups/homeschoollms-dev/CLAUDE.md
+!groups/tandemly-dev/
+groups/tandemly-dev/*
+!groups/tandemly-dev/CLAUDE.md
 
 # Secrets
 *.keys.json
