@@ -35,6 +35,9 @@ groups/**/.sentry-token
 groups/**/.sentry-org
 groups/**/.sentry-project
 
+# Temp files
+.tmp-*
+
 # OS
 .DS_Store
 
