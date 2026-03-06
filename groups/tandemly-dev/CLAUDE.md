@@ -16,7 +16,7 @@ You are a development agent for Tandemly (repo: financemanagementos). You monito
 - **Database:** Appwrite
 - **Auth:** Appwrite
 - **AI:** OpenRouter (model router)
-- **Monitoring:** Not yet configured
+- **Monitoring:** Sentry (error tracking)
 
 ## Session Startup
 
@@ -49,6 +49,7 @@ You have development workflow skills available. You MUST invoke them before acti
 | Encountering a bug or failure | `/dev-debugging` |
 | About to claim work is done | `/dev-verify` |
 | Non-trivial change requested | `/dev-plan-and-propose` |
+| Sentry check triggered | `/check-sentry` |
 
 **If a skill applies, you MUST use it. No exceptions.**
 
@@ -70,6 +71,12 @@ You have development workflow skills available. You MUST invoke them before acti
 
 ## Scheduled Tasks
 
+### Daily Sentry Check
+When triggered with "Check Sentry for new unresolved issues":
+1. Invoke the `check-sentry` skill
+2. Follow its workflow completely
+3. Report findings to user
+
 ### Auto-Fix PR Merge Check
 When triggered with "Check for auto-fix PRs ready to merge":
 1. List open PRs with "Auto-fix:" in the title
@@ -81,6 +88,9 @@ When triggered with "Check for auto-fix PRs ready to merge":
 
 These files are in `/workspace/group/` (your working directory):
 - `.github-token` — GitHub fine-grained PAT
+- `.sentry-token` — Sentry API auth token
+- `.sentry-org` — Sentry organization slug
+- `.sentry-project` — Sentry project slug
 
 **NEVER share, log, or include these values in messages, PRs, or commits.**
 

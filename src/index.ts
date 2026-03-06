@@ -193,35 +193,47 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     }, IDLE_TIMEOUT);
   };
 
+  // Start typing indicator and keep it alive every 4 seconds
   await channel.setTyping?.(chatJid, true);
+  const typingInterval = setInterval(() => {
+    channel.setTyping?.(chatJid, true)?.catch((err) =>
+      logger.warn({ chatJid, err }, 'Failed to refresh typing indicator'),
+    );
+  }, 4000);
+
   let hadError = false;
   let outputSentToUser = false;
+  let output: 'success' | 'error' = 'error';
 
-  const output = await runAgent(group, prompt, chatJid, async (result) => {
-    // Streaming output callback — called for each agent result
-    if (result.result) {
-      const raw =
-        typeof result.result === 'string'
-          ? result.result
-          : JSON.stringify(result.result);
-      // Strip <internal>...</internal> blocks — agent uses these for internal reasoning
-      const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
-      logger.info({ group: group.name }, `Agent output: ${raw.slice(0, 200)}`);
-      if (text) {
-        await channel.sendMessage(chatJid, text);
-        outputSentToUser = true;
+  try {
+    output = await runAgent(group, prompt, chatJid, async (result) => {
+      // Streaming output callback — called for each agent result
+      if (result.result) {
+        const raw =
+          typeof result.result === 'string'
+            ? result.result
+            : JSON.stringify(result.result);
+        // Strip <internal>...</internal> blocks — agent uses these for internal reasoning
+        const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
+        logger.info({ group: group.name }, `Agent output: ${raw.slice(0, 200)}`);
+        if (text) {
+          await channel.sendMessage(chatJid, text);
+          outputSentToUser = true;
+        }
+        // Only reset idle timer on actual results, not session-update markers (result: null)
+        resetIdleTimer();
       }
-      // Only reset idle timer on actual results, not session-update markers (result: null)
-      resetIdleTimer();
-    }
 
-    if (result.status === 'error') {
-      hadError = true;
-    }
-  });
-
-  await channel.setTyping?.(chatJid, false);
-  if (idleTimer) clearTimeout(idleTimer);
+      if (result.status === 'error') {
+        hadError = true;
+      }
+    });
+  } finally {
+    // Always stop typing indicator, even if there's an error
+    clearInterval(typingInterval);
+    await channel.setTyping?.(chatJid, false);
+    if (idleTimer) clearTimeout(idleTimer);
+  }
 
   if (output === 'error' || hadError) {
     // If we already sent output to the user, don't roll back the cursor —

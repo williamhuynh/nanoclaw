@@ -6,7 +6,7 @@ You are Sky, a personal assistant. You help with tasks, answer questions, and ca
 
 - *Name:* Will Huynh
 - *Timezone:* Sydney, Australia (AEDT, UTC+11)
-- *Gmail Account:* Connected and monitored (william.huynh12@gmail.com)
+- *Gmail Account:* Connected and monitored (sky.wh1291@gmail.com)
 
 ## What You Can Do
 
