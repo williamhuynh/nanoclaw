@@ -5,6 +5,7 @@ import path from 'path';
 import { Bot } from 'grammy';
 
 import { ASSISTANT_NAME, TRIGGER_PATTERN } from '../config.js';
+import { readEnvFile } from '../env.js';
 import { logger } from '../logger.js';
 import {
   Channel,
@@ -12,6 +13,7 @@ import {
   OnInboundMessage,
   RegisteredGroup,
 } from '../types.js';
+import { ChannelOpts, registerChannel } from './registry.js';
 import { resolveGroupFolderPath } from '../group-folder.js';
 
 export interface TelegramChannelOpts {
@@ -55,29 +57,32 @@ export class TelegramChannel implements Channel {
       // Download via Telegram Bot API (force IPv4 to match grammY config)
       const url = `https://api.telegram.org/file/bot${this.botToken}/${file.file_path}`;
       await new Promise<void>((resolve, reject) => {
-        https.get(url, { agent: new https.Agent({ family: 4 }) }, (res) => {
-          if (res.statusCode !== 200) {
-            res.resume();
-            reject(new Error(`Download failed: ${res.statusCode}`));
-            return;
-          }
-          const ws = fs.createWriteStream(destPath);
-          res.pipe(ws);
-          ws.on('finish', () => resolve());
-          ws.on('error', (err) => {
-            ws.destroy();
-            fs.unlink(destPath, () => {});
-            reject(err);
-          });
-        }).on('error', reject);
+        https
+          .get(url, { agent: new https.Agent({ family: 4 }) }, (res) => {
+            if (res.statusCode !== 200) {
+              res.resume();
+              reject(new Error(`Download failed: ${res.statusCode}`));
+              return;
+            }
+            const ws = fs.createWriteStream(destPath);
+            res.pipe(ws);
+            ws.on('finish', () => resolve());
+            ws.on('error', (err) => {
+              ws.destroy();
+              fs.unlink(destPath, () => {});
+              reject(err);
+            });
+          })
+          .on('error', reject);
       });
 
       // Return container-relative path
       return `/workspace/group/media/${filename}`;
     } catch (err) {
-      const safeMsg = err instanceof Error
-        ? err.message.replaceAll(this.botToken, '[REDACTED]')
-        : String(err);
+      const safeMsg =
+        err instanceof Error
+          ? err.message.replaceAll(this.botToken, '[REDACTED]')
+          : String(err);
       const errCode = (err as NodeJS.ErrnoException)?.code;
       logger.error(
         { errCode, errMsg: safeMsg },
@@ -230,9 +235,7 @@ export class TelegramChannel implements Channel {
       storeNonText(ctx, placeholder);
     });
     this.bot.on('message:video', (ctx) => storeNonText(ctx, '[Video]'));
-    this.bot.on('message:voice', (ctx) =>
-      storeNonText(ctx, '[Voice message]'),
-    );
+    this.bot.on('message:voice', (ctx) => storeNonText(ctx, '[Voice message]'));
     this.bot.on('message:audio', (ctx) => storeNonText(ctx, '[Audio]'));
     this.bot.on('message:document', async (ctx) => {
       const chatJid = `tg:${ctx.chat.id}`;
@@ -329,3 +332,14 @@ export class TelegramChannel implements Channel {
     }
   }
 }
+
+registerChannel('telegram', (opts: ChannelOpts) => {
+  const envVars = readEnvFile(['TELEGRAM_BOT_TOKEN']);
+  const token =
+    process.env.TELEGRAM_BOT_TOKEN || envVars.TELEGRAM_BOT_TOKEN || '';
+  if (!token) {
+    logger.warn('Telegram: TELEGRAM_BOT_TOKEN not set');
+    return null;
+  }
+  return new TelegramChannel(token, opts);
+});
