@@ -204,9 +204,11 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   // Start typing indicator and keep it alive every 4 seconds
   await channel.setTyping?.(chatJid, true);
   const typingInterval = setInterval(() => {
-    channel.setTyping?.(chatJid, true)?.catch((err) =>
-      logger.warn({ chatJid, err }, 'Failed to refresh typing indicator'),
-    );
+    channel
+      .setTyping?.(chatJid, true)
+      ?.catch((err) =>
+        logger.warn({ chatJid, err }, 'Failed to refresh typing indicator'),
+      );
   }, 4000);
 
   let hadError = false;
@@ -223,7 +225,10 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
             : JSON.stringify(result.result);
         // Strip <internal>...</internal> blocks — agent uses these for internal reasoning
         const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
-        logger.info({ group: group.name }, `Agent output: ${raw.slice(0, 200)}`);
+        logger.info(
+          { group: group.name },
+          `Agent output: ${raw.slice(0, 200)}`,
+        );
         if (text) {
           await channel.sendMessage(chatJid, text);
           outputSentToUser = true;
@@ -472,9 +477,13 @@ function ensureContainerSystemRunning(): void {
 
 async function processEmail(email: EmailMessage): Promise<string | null> {
   const contextKey = getContextKey(email);
-  const groupFolder = EMAIL_CHANNEL.contextMode === 'single'
-    ? MAIN_GROUP_FOLDER
-    : contextKey;
+  const mainFolder = Object.values(registeredGroups).find(
+    (g) => g.isMain,
+  )?.folder;
+  const groupFolder =
+    EMAIL_CHANNEL.contextMode === 'single' && mainFolder
+      ? mainFolder
+      : contextKey;
 
   // Ensure group folder exists
   const groupDir = path.join(DATA_DIR, '..', 'groups', groupFolder);
@@ -501,17 +510,25 @@ ${email.body}
 
   let responseText: string | null = null;
 
-  const result = await runAgent(emailGroup, prompt, `email:${email.from}`, async (output) => {
-    if (output.result) {
-      const raw = typeof output.result === 'string' ? output.result : JSON.stringify(output.result);
-      const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
-      if (text) responseText = text;
-    }
-    // Signal container to exit — email is single-query, no follow-up IPC
-    const ipcInputDir = path.join(DATA_DIR, 'ipc', groupFolder, 'input');
-    fs.mkdirSync(ipcInputDir, { recursive: true });
-    fs.writeFileSync(path.join(ipcInputDir, '_close'), '');
-  });
+  const result = await runAgent(
+    emailGroup,
+    prompt,
+    `email:${email.from}`,
+    async (output) => {
+      if (output.result) {
+        const raw =
+          typeof output.result === 'string'
+            ? output.result
+            : JSON.stringify(output.result);
+        const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
+        if (text) responseText = text;
+      }
+      // Signal container to exit — email is single-query, no follow-up IPC
+      const ipcInputDir = path.join(DATA_DIR, 'ipc', groupFolder, 'input');
+      fs.mkdirSync(ipcInputDir, { recursive: true });
+      fs.writeFileSync(path.join(ipcInputDir, '_close'), '');
+    },
+  );
 
   if (result === 'success' && responseText) {
     return responseText;
@@ -528,12 +545,18 @@ async function startEmailLoop(): Promise<void> {
   try {
     await startGmailClient();
   } catch (err) {
-    logger.error({ err }, 'Failed to start Gmail MCP client, email channel disabled');
+    logger.error(
+      { err },
+      'Failed to start Gmail MCP client, email channel disabled',
+    );
     return;
   }
 
   logger.info(
-    { triggerMode: EMAIL_CHANNEL.triggerMode, triggerValue: EMAIL_CHANNEL.triggerValue },
+    {
+      triggerMode: EMAIL_CHANNEL.triggerMode,
+      triggerValue: EMAIL_CHANNEL.triggerValue,
+    },
     'Email channel running',
   );
 
@@ -544,7 +567,10 @@ async function startEmailLoop(): Promise<void> {
       for (const email of emails) {
         if (isEmailProcessed(email.id)) continue;
 
-        logger.info({ from: email.from, subject: email.subject }, 'Processing email');
+        logger.info(
+          { from: email.from, subject: email.subject },
+          'Processing email',
+        );
         markEmailProcessed(email.id, email.threadId, email.from, email.subject);
 
         const response = await processEmail(email);
@@ -565,7 +591,9 @@ async function startEmailLoop(): Promise<void> {
       logger.error({ err }, 'Error in email loop');
     }
 
-    await new Promise(resolve => setTimeout(resolve, EMAIL_CHANNEL.pollIntervalMs));
+    await new Promise((resolve) =>
+      setTimeout(resolve, EMAIL_CHANNEL.pollIntervalMs),
+    );
   }
 }
 
