@@ -19,6 +19,9 @@ groups/global/*
 groups/email/*
 !groups/main/CLAUDE.md
 !groups/global/CLAUDE.md
+!groups/global/tome/
+groups/global/tome/journal/*
+!groups/global/tome/journal/.gitkeep
 !groups/email/CLAUDE.md
 !groups/homeschoollms-dev/
 groups/homeschoollms-dev/*
