@@ -73,3 +73,8 @@ Example: "Check my unread emails from today" or "Send an email to john@example.c
 ## Media Files
 
 When a message contains a file path like `[Photo: /workspace/group/media/...]` or `[Document: filename — /workspace/group/media/...]`, use the Read tool to view the file before responding. The Read tool supports images (JPG, PNG) and documents (PDF, text files).
+
+## ToME
+
+ToME data is at `/workspace/global/tome/`.
+Use `/init-tome` at session start to load mental model context.
