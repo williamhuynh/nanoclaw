@@ -4,7 +4,11 @@
  */
 import { spawn, ChildProcess } from 'child_process';
 import { EMAIL_CHANNEL } from './config.js';
-import { isEmailProcessed, markEmailProcessed, markEmailResponded } from './db.js';
+import {
+  isEmailProcessed,
+  markEmailProcessed,
+  markEmailResponded,
+} from './db.js';
 import { logger } from './logger.js';
 
 export interface EmailMessage {
@@ -134,7 +138,8 @@ class GmailMcpClient {
       this.pendingResolves.set(id, resolve);
       this.pendingRejects.set(id, reject);
 
-      const message = JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n';
+      const message =
+        JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n';
       this.process.stdin.write(message);
 
       // Timeout after 30s
@@ -148,9 +153,15 @@ class GmailMcpClient {
     });
   }
 
-  async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+  async callTool(
+    name: string,
+    args: Record<string, unknown>,
+  ): Promise<unknown> {
     if (!this.initialized) await this.start();
-    const result = await this.sendRequest('tools/call', { name, arguments: args });
+    const result = await this.sendRequest('tools/call', {
+      name,
+      arguments: args,
+    });
     return result;
   }
 }
@@ -181,8 +192,8 @@ function extractText(result: unknown): string {
   const r = result as McpToolResult;
   if (r?.content) {
     return r.content
-      .filter(c => c.type === 'text' && c.text)
-      .map(c => c.text!)
+      .filter((c) => c.type === 'text' && c.text)
+      .map((c) => c.text!)
       .join('\n');
   }
   return typeof result === 'string' ? result : JSON.stringify(result);
@@ -191,7 +202,9 @@ function extractText(result: unknown): string {
 function matchesTrigger(email: EmailMessage): boolean {
   if (EMAIL_CHANNEL.triggerMode !== 'subject') return true;
   // Gmail subject: search is fuzzy; enforce exact prefix match client-side
-  return email.subject.toLowerCase().startsWith(EMAIL_CHANNEL.triggerValue.toLowerCase());
+  return email.subject
+    .toLowerCase()
+    .startsWith(EMAIL_CHANNEL.triggerValue.toLowerCase());
 }
 
 export async function searchNewEmails(): Promise<EmailMessage[]> {
