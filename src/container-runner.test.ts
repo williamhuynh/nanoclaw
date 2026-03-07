@@ -251,8 +251,7 @@ describe('container-runner tome mount', () => {
     // Read-write mounts use: -v host:container (no :ro suffix)
     const tomeVolumeIdx = spawnArgs.findIndex(
       (arg: string) =>
-        arg.includes('/global/tome') &&
-        arg.includes('/workspace/global/tome'),
+        arg.includes('/global/tome') && arg.includes('/workspace/global/tome'),
     );
     expect(tomeVolumeIdx).toBeGreaterThan(-1);
 
