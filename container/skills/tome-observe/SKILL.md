@@ -60,6 +60,8 @@ Look for these signal types:
 
 Write or append to today's journal entry (`YYYY-MM-DD.md` in the `journal/` subdirectory).
 
+Keep entries proportional to conversation length. A 10-turn chat should not produce a 100-line journal. Be concise — capture the signal, not the noise.
+
 Format:
 
 ```markdown
@@ -82,22 +84,43 @@ Format:
 ### Patterns
 - [Pattern observed → Inference]
 
+### Notable Quotes
+- [Direct quotes that reveal preferences, values, or thinking style]
+
 ### Predictions to Test
 - [Prediction → How to validate → Confidence %]
 ```
 
+Omit empty sections. Only include sections where you have actual observations.
+
 ### 4. Update Mental Model (If Warranted)
 
-Only update the mental model if:
+#### First-session bootstrapping
+
+If the mental model is mostly unpopulated (template defaults), you may populate it from a single conversation. Use lower confidence levels to reflect limited data:
+
+- Direct quotes/explicit statements → max 70%
+- Explicit corrections → max 80%
+- Inferred patterns → max 50%
+
+These will increase as subsequent sessions confirm or refine beliefs.
+
+#### Ongoing updates
+
+For an already-populated mental model, only update if:
 - A belief changed (correction invalidated something)
-- A new high-confidence pattern emerged (3+ consistent signals)
+- A new high-confidence pattern emerged (3+ consistent signals across sessions)
 - A goal changed (user stated new priorities)
 - Knowledge state shifted (user demonstrated new expertise or started learning something)
 
 Do NOT update for:
 - Single observations without pattern confirmation
-- Speculative inferences
+- Speculative inferences — only record what was directly stated or demonstrated, never "inferred from context"
 - Minor variations in established patterns
+
+#### Knowledge state rules
+
+Only record expertise when the user **demonstrates** it (e.g., corrects you on a technical detail, explains something with depth) or **states** it (e.g., "I've been doing X for years"). Never infer expertise from context alone.
 
 ### 5. Summary
 
@@ -108,7 +131,7 @@ Briefly note:
 
 ## Guidelines
 
-- **"User said" vs "I inferred"** — Always distinguish quotes from hypotheses
-- **Confidence levels** — Every belief gets a percentage. Be honest about uncertainty
-- **Testable predictions** — Make predictions specific enough to validate
-- **No speculation** — Only record what you actually observed
+- **"User said" vs "I inferred"** — Always distinguish quotes from hypotheses. Use exact quotes where possible.
+- **Confidence calibration** — First observation caps at 70%. Needs 2+ confirming signals across sessions to exceed 80%. Explicit corrections can start at 80% (direct evidence). Be honest about uncertainty.
+- **Testable predictions** — Make predictions specific enough to validate. Include how you'd test them.
+- **No speculation** — Only record what you actually observed. If you didn't see it, don't write it.

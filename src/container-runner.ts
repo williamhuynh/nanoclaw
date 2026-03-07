@@ -91,6 +91,16 @@ function buildVolumeMounts(
       containerPath: '/workspace/group',
       readonly: false,
     });
+
+    // ToME mental model directory (read-write, same path as non-main groups)
+    const mainTomeDir = path.join(GROUPS_DIR, 'global', 'tome');
+    if (fs.existsSync(mainTomeDir)) {
+      mounts.push({
+        hostPath: mainTomeDir,
+        containerPath: '/workspace/global/tome',
+        readonly: false,
+      });
+    }
   } else {
     // Other groups only get their own folder
     mounts.push({

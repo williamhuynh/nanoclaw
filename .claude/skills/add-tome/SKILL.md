@@ -121,7 +121,23 @@ Check if `src/container-runner.ts` already has the tome mount:
 grep 'tomeDir' src/container-runner.ts
 ```
 
-If NOT present, add the following block inside `buildVolumeMounts()`, in the non-main else branch, after the read-only global directory mount:
+If NOT present, add tome mounts in **both** branches of `buildVolumeMounts()`:
+
+**Main branch** (inside `if (isMain)`, after the group folder mount):
+
+```typescript
+    // ToME mental model directory (read-write, same path as non-main groups)
+    const mainTomeDir = path.join(GROUPS_DIR, 'global', 'tome');
+    if (fs.existsSync(mainTomeDir)) {
+      mounts.push({
+        hostPath: mainTomeDir,
+        containerPath: '/workspace/global/tome',
+        readonly: false,
+      });
+    }
+```
+
+**Non-main branch** (inside `else`, after the read-only global directory mount):
 
 ```typescript
     // ToME mental model directory (read-write for non-main groups)
@@ -136,7 +152,7 @@ If NOT present, add the following block inside `buildVolumeMounts()`, in the non
     }
 ```
 
-Also add a test in `src/container-runner.test.ts` that verifies the tome mount appears in spawn args for non-main groups when the tome directory exists. Follow the existing test patterns in that file (mock `existsSync` to return `true` for the tome path, check spawn args for the `-v` mount).
+Also add tests in `src/container-runner.test.ts` that verify the tome mount appears in spawn args for **both** main and non-main groups when the tome directory exists. Follow the existing test patterns in that file (mock `existsSync` to return `true` for the tome path, check spawn args for the `-v` mount).
 
 After patching:
 
@@ -204,8 +220,8 @@ Report results.
 
 To remove ToME-AI:
 
-1. Remove the tome mount block from `src/container-runner.ts`
-2. Remove the tome mount test from `src/container-runner.test.ts`
+1. Remove both tome mount blocks (main and non-main) from `src/container-runner.ts`
+2. Remove both tome mount tests (main and non-main) from `src/container-runner.test.ts`
 3. Remove the ToME section from `groups/global/CLAUDE.md`
 4. Remove the tome `.gitignore` lines (3 lines after `!groups/global/CLAUDE.md`)
 5. Delete `container/skills/init-tome/`, `container/skills/tome-observe/`, `container/skills/tome-adapt/`, `container/skills/tome-review/`

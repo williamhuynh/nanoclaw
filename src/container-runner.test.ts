@@ -275,4 +275,56 @@ describe('container-runner tome mount', () => {
     // Reset the mock
     existsSyncMock.mockReturnValue(false);
   });
+
+  it('main group gets read-write tome mount when tome directory exists', async () => {
+    const existsSyncMock = fs.existsSync as ReturnType<typeof vi.fn>;
+    existsSyncMock.mockImplementation((p: string) => {
+      if (typeof p === 'string' && p.includes('global') && p.includes('tome')) {
+        return true;
+      }
+      // Return true for .env (shadow mount)
+      if (typeof p === 'string' && p.endsWith('.env')) {
+        return true;
+      }
+      return false;
+    });
+
+    const onOutput = vi.fn(async () => {});
+    const resultPromise = runContainerAgent(
+      testGroup,
+      { ...testInput, isMain: true },
+      () => {},
+      onOutput,
+    );
+
+    const spawnMock = spawn as ReturnType<typeof vi.fn>;
+    const lastCallIdx = spawnMock.mock.calls.length - 1;
+    const spawnArgs = spawnMock.mock.calls[lastCallIdx][1] as string[];
+
+    // Find the tome mount in spawn args
+    const tomeVolumeIdx = spawnArgs.findIndex(
+      (arg: string) =>
+        arg.includes('/global/tome') && arg.includes('/workspace/global/tome'),
+    );
+    expect(tomeVolumeIdx).toBeGreaterThan(-1);
+
+    // Verify mount is NOT read-only
+    const tomeMount = spawnArgs[tomeVolumeIdx];
+    expect(tomeMount).not.toContain(':ro');
+
+    // Verify -v flag
+    expect(spawnArgs[tomeVolumeIdx - 1]).toBe('-v');
+
+    // Clean up
+    emitOutputMarker(fakeProc, {
+      status: 'success',
+      result: 'Done',
+    });
+    await vi.advanceTimersByTimeAsync(10);
+    fakeProc.emit('close', 0);
+    await vi.advanceTimersByTimeAsync(10);
+    await resultPromise;
+
+    existsSyncMock.mockReturnValue(false);
+  });
 });
