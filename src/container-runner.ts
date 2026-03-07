@@ -109,6 +109,17 @@ function buildVolumeMounts(
         readonly: true,
       });
     }
+
+    // ToME mental model directory (read-write for all groups)
+    // Overlays the read-only global mount for just the tome/ subdirectory
+    const tomeDir = path.join(GROUPS_DIR, 'global', 'tome');
+    if (fs.existsSync(tomeDir)) {
+      mounts.push({
+        hostPath: tomeDir,
+        containerPath: '/workspace/global/tome',
+        readonly: false,
+      });
+    }
   }
 
   // Gmail credentials directory
@@ -117,7 +128,7 @@ function buildVolumeMounts(
     mounts.push({
       hostPath: gmailDir,
       containerPath: '/home/node/.gmail-mcp',
-      readonly: false,  // MCP may need to refresh tokens
+      readonly: false, // MCP may need to refresh tokens
     });
   }
 
