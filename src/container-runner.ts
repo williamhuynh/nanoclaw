@@ -110,7 +110,7 @@ function buildVolumeMounts(
       });
     }
 
-    // ToME mental model directory (read-write for all groups)
+    // ToME mental model directory (read-write for non-main groups)
     // Overlays the read-only global mount for just the tome/ subdirectory
     const tomeDir = path.join(GROUPS_DIR, 'global', 'tome');
     if (fs.existsSync(tomeDir)) {

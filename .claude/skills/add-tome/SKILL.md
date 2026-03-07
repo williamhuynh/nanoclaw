@@ -30,6 +30,32 @@ grep -n 'ToME' groups/global/CLAUDE.md
 mkdir -p groups/global/tome/journal
 ```
 
+### Update .gitignore
+
+The `.gitignore` has `groups/global/*` which ignores everything under `groups/global/`. Add these lines after the `!groups/global/CLAUDE.md` line to whitelist tome:
+
+```gitignore
+!groups/global/tome/
+groups/global/tome/journal/*
+!groups/global/tome/journal/.gitkeep
+```
+
+This tracks the `tome/` directory and mental model template, but ignores journal contents (runtime data) except the `.gitkeep` that preserves the directory structure.
+
+Check if already present:
+
+```bash
+grep 'tome' .gitignore
+```
+
+### Create mental model template
+
+Create a `.gitkeep` to track the journal directory:
+
+```bash
+touch groups/global/tome/journal/.gitkeep
+```
+
 If `groups/global/tome/mental-model.md` does not exist, create it from the template in `container/skills/init-tome/SKILL.md` or use this minimal template:
 
 ```markdown
@@ -110,6 +136,8 @@ If NOT present, add the following block inside `buildVolumeMounts()`, in the non
     }
 ```
 
+Also add a test in `src/container-runner.test.ts` that verifies the tome mount appears in spawn args for non-main groups when the tome directory exists. Follow the existing test patterns in that file (mock `existsSync` to return `true` for the tome path, check spawn args for the `-v` mount).
+
 After patching:
 
 ```bash
@@ -177,7 +205,9 @@ Report results.
 To remove ToME-AI:
 
 1. Remove the tome mount block from `src/container-runner.ts`
-2. Remove the ToME section from `groups/global/CLAUDE.md`
-3. Delete `container/skills/init-tome/`, `container/skills/tome-observe/`, `container/skills/tome-adapt/`, `container/skills/tome-review/`
-4. Optionally delete `groups/global/tome/` (preserves mental model data if kept)
-5. `npm test && npm run build`
+2. Remove the tome mount test from `src/container-runner.test.ts`
+3. Remove the ToME section from `groups/global/CLAUDE.md`
+4. Remove the tome `.gitignore` lines (3 lines after `!groups/global/CLAUDE.md`)
+5. Delete `container/skills/init-tome/`, `container/skills/tome-observe/`, `container/skills/tome-adapt/`, `container/skills/tome-review/`
+6. Optionally delete `groups/global/tome/` (preserves mental model data if kept)
+7. `npm test && npm run build`
