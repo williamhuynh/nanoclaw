@@ -286,8 +286,13 @@ async function runAgent(
   const MAX_SESSION_FILE_SIZE = 2 * 1024 * 1024; // 2MB
   if (sessionId) {
     const sessionFile = path.join(
-      DATA_DIR, 'sessions', group.folder, '.claude', 'projects',
-      '-workspace-group', `${sessionId}.jsonl`,
+      DATA_DIR,
+      'sessions',
+      group.folder,
+      '.claude',
+      'projects',
+      '-workspace-group',
+      `${sessionId}.jsonl`,
     );
     try {
       const stats = fs.statSync(sessionFile);
@@ -296,8 +301,16 @@ async function runAgent(
           { group: group.name, sessionFile, size: stats.size },
           `Session file exceeds ${MAX_SESSION_FILE_SIZE} bytes — starting fresh session`,
         );
-        try { fs.unlinkSync(sessionFile); } catch { /* ignore */ }
-        try { fs.rmSync(sessionFile.replace('.jsonl', ''), { recursive: true }); } catch { /* ignore */ }
+        try {
+          fs.unlinkSync(sessionFile);
+        } catch {
+          /* ignore */
+        }
+        try {
+          fs.rmSync(sessionFile.replace('.jsonl', ''), { recursive: true });
+        } catch {
+          /* ignore */
+        }
         delete sessions[group.folder];
         deleteSession(group.folder);
         sessionId = undefined;
@@ -366,7 +379,10 @@ async function runAgent(
     if (output.status === 'error') {
       // If the error is "Prompt is too long", clear the session so next run starts fresh
       if (output.error?.includes('Prompt is too long')) {
-        logger.warn({ group: group.name }, 'Prompt too long — clearing session for fresh start');
+        logger.warn(
+          { group: group.name },
+          'Prompt too long — clearing session for fresh start',
+        );
         delete sessions[group.folder];
         deleteSession(group.folder);
       }
