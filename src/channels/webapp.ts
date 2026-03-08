@@ -51,7 +51,6 @@ export class WebappChannel implements Channel {
             is_from_me: false,
           };
 
-          this.opts.onMessage(chatJid, newMsg);
           this.opts.onChatMetadata(
             chatJid,
             timestamp,
@@ -59,6 +58,7 @@ export class WebappChannel implements Channel {
             'webapp',
             false,
           );
+          this.opts.onMessage(chatJid, newMsg);
         }
       } catch (e) {
         logger.error({ err: e }, 'Webapp WebSocket parse error');
