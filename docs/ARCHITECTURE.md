@@ -13,3 +13,13 @@ When adding new capabilities, prefer saving data to the filesystem and letting t
 - New channel implementations (these are additive files, not modifications)
 - Security fixes
 - Changes that upstream would also benefit from (contribute back)
+
+## Customisation Points
+
+The following core files have local customisations that must be reviewed when merging upstream:
+
+| File | Customisation | Purpose |
+|------|--------------|---------|
+| `container/agent-runner/src/index.ts` | Usage metadata logging | Writes token/context usage to `/workspace/ipc/usage/` after each run for Mission Control telemetry |
+
+When pulling upstream changes, check these files for merge conflicts and ensure customisations are preserved.
