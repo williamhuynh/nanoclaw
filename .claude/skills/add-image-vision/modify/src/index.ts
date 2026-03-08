@@ -1,14 +1,10 @@
-import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
 import {
   ASSISTANT_NAME,
-  DATA_DIR,
-  EMAIL_CHANNEL,
   IDLE_TIMEOUT,
   POLL_INTERVAL,
-  TIMEZONE,
   TRIGGER_PATTERN,
 } from './config.js';
 import './channels/index.js';
@@ -33,20 +29,16 @@ import {
   getAllTasks,
   getMessagesSince,
   getNewMessages,
-  getRegisteredGroup,
   getRouterState,
   initDatabase,
   setRegisteredGroup,
   setRouterState,
-  deleteSession,
   setSession,
   storeChatMetadata,
   storeMessage,
-  isEmailProcessed,
-  markEmailProcessed,
-  markEmailResponded,
 } from './db.js';
 import { GroupQueue } from './group-queue.js';
+import { resolveGroupFolderPath } from './group-folder.js';
 import { startIpcWatcher } from './ipc.js';
 import { findChannel, formatMessages, formatOutbound } from './router.js';
 import {
@@ -57,15 +49,8 @@ import {
 } from './sender-allowlist.js';
 import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
+import { parseImageReferences } from './image.js';
 import { logger } from './logger.js';
-import {
-  searchNewEmails,
-  sendEmailReply,
-  getContextKey,
-  startGmailClient,
-  stopGmailClient,
-  EmailMessage,
-} from './email-channel.js';
 
 // Re-export for backwards compatibility during refactor
 export { escapeXml, formatMessages } from './router.js';
@@ -102,11 +87,21 @@ function saveState(): void {
 }
 
 function registerGroup(jid: string, group: RegisteredGroup): void {
+  let groupDir: string;
+  try {
+    groupDir = resolveGroupFolderPath(group.folder);
+  } catch (err) {
+    logger.warn(
+      { jid, folder: group.folder, err },
+      'Rejecting group registration with invalid folder',
+    );
+    return;
+  }
+
   registeredGroups[jid] = group;
   setRegisteredGroup(jid, group);
 
   // Create group folder
-  const groupDir = path.join(DATA_DIR, '..', 'groups', group.folder);
   fs.mkdirSync(path.join(groupDir, 'logs'), { recursive: true });
 
   logger.info(
@@ -176,7 +171,8 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     if (!hasTrigger) return true;
   }
 
-  const prompt = formatMessages(missedMessages, TIMEZONE);
+  const prompt = formatMessages(missedMessages);
+  const imageAttachments = parseImageReferences(missedMessages);
 
   // Advance cursor so the piping path in startMessageLoop won't re-fetch
   // these messages. Save the old cursor so we can roll back on error.
@@ -204,52 +200,39 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     }, IDLE_TIMEOUT);
   };
 
-  // Start typing indicator and keep it alive every 4 seconds
   await channel.setTyping?.(chatJid, true);
-  const typingInterval = setInterval(() => {
-    channel
-      .setTyping?.(chatJid, true)
-      ?.catch((err) =>
-        logger.warn({ chatJid, err }, 'Failed to refresh typing indicator'),
-      );
-  }, 4000);
-
   let hadError = false;
   let outputSentToUser = false;
-  let output: 'success' | 'error' = 'error';
 
-  try {
-    output = await runAgent(group, prompt, chatJid, async (result) => {
-      // Streaming output callback — called for each agent result
-      if (result.result) {
-        const raw =
-          typeof result.result === 'string'
-            ? result.result
-            : JSON.stringify(result.result);
-        // Strip <internal>...</internal> blocks — agent uses these for internal reasoning
-        const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
-        logger.info(
-          { group: group.name },
-          `Agent output: ${raw.slice(0, 200)}`,
-        );
-        if (text) {
-          await channel.sendMessage(chatJid, text);
-          outputSentToUser = true;
-        }
-        // Only reset idle timer on actual results, not session-update markers (result: null)
-        resetIdleTimer();
+  const output = await runAgent(group, prompt, chatJid, imageAttachments, async (result) => {
+    // Streaming output callback — called for each agent result
+    if (result.result) {
+      const raw =
+        typeof result.result === 'string'
+          ? result.result
+          : JSON.stringify(result.result);
+      // Strip <internal>...</internal> blocks — agent uses these for internal reasoning
+      const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
+      logger.info({ group: group.name }, `Agent output: ${raw.slice(0, 200)}`);
+      if (text) {
+        await channel.sendMessage(chatJid, text);
+        outputSentToUser = true;
       }
+      // Only reset idle timer on actual results, not session-update markers (result: null)
+      resetIdleTimer();
+    }
 
-      if (result.status === 'error') {
-        hadError = true;
-      }
-    });
-  } finally {
-    // Always stop typing indicator, even if there's an error
-    clearInterval(typingInterval);
-    await channel.setTyping?.(chatJid, false);
-    if (idleTimer) clearTimeout(idleTimer);
-  }
+    if (result.status === 'success') {
+      queue.notifyIdle(chatJid);
+    }
+
+    if (result.status === 'error') {
+      hadError = true;
+    }
+  });
+
+  await channel.setTyping?.(chatJid, false);
+  if (idleTimer) clearTimeout(idleTimer);
 
   if (output === 'error' || hadError) {
     // If we already sent output to the user, don't roll back the cursor —
@@ -278,49 +261,11 @@ async function runAgent(
   group: RegisteredGroup,
   prompt: string,
   chatJid: string,
+  imageAttachments: Array<{ relativePath: string; mediaType: string }>,
   onOutput?: (output: ContainerOutput) => Promise<void>,
 ): Promise<'success' | 'error'> {
   const isMain = group.isMain === true;
-  let sessionId: string | undefined = sessions[group.folder];
-
-  // Proactively reset sessions whose .jsonl file exceeds 2MB to avoid
-  // "Prompt is too long" errors from unbounded session growth
-  const MAX_SESSION_FILE_SIZE = 2 * 1024 * 1024; // 2MB
-  if (sessionId) {
-    const sessionFile = path.join(
-      DATA_DIR,
-      'sessions',
-      group.folder,
-      '.claude',
-      'projects',
-      '-workspace-group',
-      `${sessionId}.jsonl`,
-    );
-    try {
-      const stats = fs.statSync(sessionFile);
-      if (stats.size > MAX_SESSION_FILE_SIZE) {
-        logger.warn(
-          { group: group.name, sessionFile, size: stats.size },
-          `Session file exceeds ${MAX_SESSION_FILE_SIZE} bytes — starting fresh session`,
-        );
-        try {
-          fs.unlinkSync(sessionFile);
-        } catch {
-          /* ignore */
-        }
-        try {
-          fs.rmSync(sessionFile.replace('.jsonl', ''), { recursive: true });
-        } catch {
-          /* ignore */
-        }
-        delete sessions[group.folder];
-        deleteSession(group.folder);
-        sessionId = undefined;
-      }
-    } catch {
-      // File doesn't exist or can't be read — that's fine, let the container handle it
-    }
-  }
+  const sessionId = sessions[group.folder];
 
   // Update tasks snapshot for container to read (filtered by group)
   const tasks = getAllTasks();
@@ -367,6 +312,8 @@ async function runAgent(
         groupFolder: group.folder,
         chatJid,
         isMain,
+        assistantName: ASSISTANT_NAME,
+        ...(imageAttachments.length > 0 && { imageAttachments }),
       },
       (proc, containerName) =>
         queue.registerProcess(chatJid, proc, containerName, group.folder),
@@ -379,15 +326,6 @@ async function runAgent(
     }
 
     if (output.status === 'error') {
-      // If the error is "Prompt is too long", clear the session so next run starts fresh
-      if (output.error?.includes('Prompt is too long')) {
-        logger.warn(
-          { group: group.name },
-          'Prompt too long — clearing session for fresh start',
-        );
-        delete sessions[group.folder];
-        deleteSession(group.folder);
-      }
       logger.error(
         { group: group.name, error: output.error },
         'Container agent error',
@@ -474,7 +412,7 @@ async function startMessageLoop(): Promise<void> {
           );
           const messagesToSend =
             allPending.length > 0 ? allPending : groupMessages;
-          const formatted = formatMessages(messagesToSend, TIMEZONE);
+          const formatted = formatMessages(messagesToSend);
 
           if (queue.sendMessage(chatJid, formatted)) {
             logger.debug(
@@ -526,128 +464,6 @@ function ensureContainerSystemRunning(): void {
   cleanupOrphans();
 }
 
-async function processEmail(email: EmailMessage): Promise<string | null> {
-  const contextKey = getContextKey(email);
-  const mainFolder = Object.values(registeredGroups).find(
-    (g) => g.isMain,
-  )?.folder;
-  const groupFolder =
-    EMAIL_CHANNEL.contextMode === 'single' && mainFolder
-      ? mainFolder
-      : contextKey;
-
-  // Ensure group folder exists
-  const groupDir = path.join(DATA_DIR, '..', 'groups', groupFolder);
-  fs.mkdirSync(path.join(groupDir, 'logs'), { recursive: true });
-
-  // Create a virtual registered group for email processing
-  const emailGroup: RegisteredGroup = {
-    name: contextKey,
-    folder: groupFolder,
-    trigger: '',
-    added_at: new Date().toISOString(),
-  };
-
-  const prompt = `You received an email. Read it and compose a reply. Your response will be sent as an email reply, so write it as a proper email response (no subject line needed, just the body).
-
-<email>
-<from>${email.from}</from>
-<subject>${email.subject}</subject>
-<date>${email.date}</date>
-<body>
-${email.body}
-</body>
-</email>`;
-
-  let responseText: string | null = null;
-
-  const result = await runAgent(
-    emailGroup,
-    prompt,
-    `email:${email.from}`,
-    async (output) => {
-      if (output.result) {
-        const raw =
-          typeof output.result === 'string'
-            ? output.result
-            : JSON.stringify(output.result);
-        const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
-        if (text) responseText = text;
-      }
-      // Signal container to exit — email is single-query, no follow-up IPC
-      const ipcInputDir = path.join(DATA_DIR, 'ipc', groupFolder, 'input');
-      fs.mkdirSync(ipcInputDir, { recursive: true });
-      fs.writeFileSync(path.join(ipcInputDir, '_close'), '');
-    },
-  );
-
-  if (result === 'success' && responseText) {
-    return responseText;
-  }
-  return null;
-}
-
-async function startEmailLoop(): Promise<void> {
-  if (!EMAIL_CHANNEL.enabled) {
-    logger.info('Email channel disabled');
-    return;
-  }
-
-  try {
-    await startGmailClient();
-  } catch (err) {
-    logger.error(
-      { err },
-      'Failed to start Gmail MCP client, email channel disabled',
-    );
-    return;
-  }
-
-  logger.info(
-    {
-      triggerMode: EMAIL_CHANNEL.triggerMode,
-      triggerValue: EMAIL_CHANNEL.triggerValue,
-    },
-    'Email channel running',
-  );
-
-  while (true) {
-    try {
-      const emails = await searchNewEmails();
-
-      for (const email of emails) {
-        if (isEmailProcessed(email.id)) continue;
-
-        logger.info(
-          { from: email.from, subject: email.subject },
-          'Processing email',
-        );
-        markEmailProcessed(email.id, email.threadId, email.from, email.subject);
-
-        const response = await processEmail(email);
-
-        if (response) {
-          await sendEmailReply(
-            email.threadId,
-            email.from,
-            email.subject,
-            response,
-            email.id,
-          );
-          markEmailResponded(email.id);
-          logger.info({ to: email.from }, 'Email reply sent');
-        }
-      }
-    } catch (err) {
-      logger.error({ err }, 'Error in email loop');
-    }
-
-    await new Promise((resolve) =>
-      setTimeout(resolve, EMAIL_CHANNEL.pollIntervalMs),
-    );
-  }
-}
-
 async function main(): Promise<void> {
   ensureContainerSystemRunning();
   initDatabase();
@@ -658,7 +474,6 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received');
     await queue.shutdown(10000);
-    await stopGmailClient();
     for (const ch of channels) await ch.disconnect();
     process.exit(0);
   };
@@ -758,9 +573,6 @@ async function main(): Promise<void> {
   startMessageLoop().catch((err) => {
     logger.fatal({ err }, 'Message loop crashed unexpectedly');
     process.exit(1);
-  });
-  startEmailLoop().catch((err) => {
-    logger.error({ err }, 'Email loop crashed');
   });
 }
 
