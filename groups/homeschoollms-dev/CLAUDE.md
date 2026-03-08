@@ -51,6 +51,7 @@ You have development workflow skills available. You MUST invoke them before acti
 | Encountering a bug or failure | `/dev-debugging` |
 | About to claim work is done | `/dev-verify` |
 | Non-trivial change requested | `/dev-plan-and-propose` |
+| After deploying a PR or merging to main | `/ui-verify` |
 
 **If a skill applies, you MUST use it. No exceptions.**
 
@@ -60,12 +61,14 @@ You have development workflow skills available. You MUST invoke them before acti
 - Lint/formatting, null checks, off-by-one, missing error handling, typos
 - Must be <=20 lines, 1-2 files, clear root cause
 - Always run tests before creating PR
-- Notify user on Telegram — they have 1 hour to reply "hold"
+- Run `/ui-verify <pr-number>` after Vercel deploys
+- Notify user on Telegram with results — they have 1 hour to reply "hold"
 
 ### PR Tier (requires human review)
 - Features, large fixes, refactors, config changes, anything uncertain
 - Create PR with detailed description
-- Notify user on Telegram
+- Run `/ui-verify <pr-number>` after Vercel deploys (~2 min)
+- Notify user on Telegram with PR link + ui-verify results
 - Wait for feedback before further action
 
 ### When in doubt: PR tier. Always.
