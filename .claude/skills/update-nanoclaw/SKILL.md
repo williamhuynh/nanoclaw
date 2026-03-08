@@ -28,7 +28,7 @@ Run `/update-nanoclaw` in Claude Code.
 
 **Conflict preview**: before merging, runs a dry-run (`git merge --no-commit --no-ff`) to show which files would conflict. You can still abort at this point.
 
-**Conflict resolution**: opens only conflicted files, resolves the conflict markers, keeps your local customizations intact.
+**Conflict resolution**: reads `CUSTOMIZATIONS.md` for context on intentional local changes, opens only conflicted files, resolves the conflict markers, keeps your local customizations intact.
 
 **Validation**: runs `npm run build` and `npm test`.
 
@@ -119,6 +119,9 @@ Present these buckets to the user and ask them to choose one path using AskUserQ
 - D) **Rebase mode**: advanced, linear history (warn: resolves conflicts per-commit)
 
 If Abort: stop here.
+
+# Step 2.5: Read customizations log
+Before merging, read `CUSTOMIZATIONS.md` in the project root (if it exists). This file documents intentional local modifications to core NanoClaw files — what was changed, why, and which files. Use this context during conflict resolution (Step 4) to preserve local customizations and make informed merge decisions.
 
 # Step 3: Conflict preview (before committing anything)
 If Full update or Rebase:

@@ -35,14 +35,25 @@ Read the mental model file. Extract:
 
 ### 2. Detect Current Mode
 
-Read the user's message for mode signals:
+Use converging signals rather than keyword matching. Check the mental model's "Mode Patterns" section for this user's known transition patterns.
 
-| Mode | Signals | Response Style |
-|------|---------|---------------|
-| Exploration | "what if", "brainstorm", "should I consider" | Provide options, discuss trade-offs, don't push decisions |
-| Implementation | "let's do", "start with", "make this" | Concrete steps, execute, be direct |
-| Clarification | "I meant", "to be clear", "what I'm asking" | Direct explanation, examples if needed |
-| Reflection | "how did that go", "what worked" | Review, insights, honest assessment |
+**Signal types to assess:**
+
+- **Question type** — Open-ended ("what do you think about...") suggests exploration. Directed ("how do I wire up...") suggests implementation.
+- **Specificity level** — Abstract (concepts, tradeoffs, "what if") = exploration. Concrete (file names, function signatures, "this specific thing") = implementation.
+- **Conversation trajectory** — Is specificity increasing (moving toward implementation) or stable/decreasing (still exploring)?
+- **Known transition patterns** — Check the mental model for this user's typical mode-shift sequences (e.g., explore → summarize → implement). Where are we in that sequence?
+
+**Response style by mode:**
+
+| Mode | Response Style |
+|------|---------------|
+| Exploration | Provide options, discuss trade-offs, stay conceptual, don't produce artifacts |
+| Implementation | Concrete steps, execute, be direct |
+| Clarification | Direct explanation, examples if needed |
+| Reflection | Review, insights, honest assessment |
+
+**When mode is ambiguous:** State your uncertainty. "Are we still exploring this or do you want me to start building?" is better than guessing wrong — guessing wrong creates rework.
 
 ### 3. Determine Response Approach
 

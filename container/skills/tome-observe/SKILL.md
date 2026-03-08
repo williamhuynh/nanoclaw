@@ -45,10 +45,12 @@ Look for these signal types:
 - What does this reveal about their priorities?
 - Repeated question types indicate core concerns
 
-**Mode Signals**
-- Did the user signal exploration, implementation, clarification, or reflection?
-- Were there mode transitions during the conversation?
-- What triggered the transitions?
+**Mode Transitions**
+- What mode was active at the start of the conversation?
+- Did the mode shift? What triggered it? (e.g., user summarized understanding then said "let's build it")
+- Track the specificity gradient: was the conversation abstract (concepts, tradeoffs) or concrete (file names, specific actions)? Did it move along that spectrum?
+- Note the transition sequence (e.g., exploration → summary/confirmation → implementation)
+- If a new transition pattern is observed, log it as a prediction to test
 
 **Implicit Patterns**
 - Analogies the user made
@@ -78,8 +80,8 @@ Format:
 ### Questions
 - [What was asked → Inferred priority]
 
-### Mode Signals
-- [Mode detected → Evidence]
+### Mode Transitions
+- [Starting mode → Trigger → New mode → Specificity level]
 
 ### Patterns
 - [Pattern observed → Inference]
@@ -122,7 +124,20 @@ Do NOT update for:
 
 Only record expertise when the user **demonstrates** it (e.g., corrects you on a technical detail, explains something with depth) or **states** it (e.g., "I've been doing X for years"). Never infer expertise from context alone.
 
-### 5. Summary
+### 5. Reconcile Predictions
+
+After writing the journal and updating the mental model, reconcile predictions between the two:
+
+1. **Check existing hypotheses** — Read the "Active Hypotheses" section in the mental model. Did this conversation validate or invalidate any?
+   - Validated → Promote to a stated belief in the relevant mental model section (Values, Behavioral Patterns, Communication Preferences, etc.). Increase confidence. Remove from Active Hypotheses.
+   - Invalidated → Update or remove the underlying mental model belief. Remove from Active Hypotheses. Note why in the journal.
+   - No data → Leave as-is.
+
+2. **Surface new hypotheses** — Any new predictions from this session's journal should be added to Active Hypotheses in the mental model. Don't leave predictions only in the journal — that's where they get lost.
+
+3. **Check for orphans** — If a mental model belief has no supporting evidence trail (no journal entry, no prediction history), flag it for review. Beliefs should be traceable.
+
+### 6. Summary
 
 Briefly note:
 - Number of signals captured

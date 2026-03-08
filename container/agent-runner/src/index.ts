@@ -361,7 +361,7 @@ async function runQuery(
   containerInput: ContainerInput,
   sdkEnv: Record<string, string | undefined>,
   resumeAt?: string,
-): Promise<{ newSessionId?: string; lastAssistantUuid?: string; closedDuringQuery: boolean }> {
+): Promise<{ newSessionId?: string; lastAssistantUuid?: string; closedDuringQuery: boolean; promptTooLong: boolean }> {
   const stream = new MessageStream();
   stream.push(prompt);
 
@@ -390,6 +390,7 @@ async function runQuery(
   let lastAssistantUuid: string | undefined;
   let messageCount = 0;
   let resultCount = 0;
+  let promptTooLong = false;
 
   // Load global CLAUDE.md as additional system context (shared across all groups)
   const globalClaudeMdPath = '/workspace/global/CLAUDE.md';
@@ -482,6 +483,14 @@ async function runQuery(
       resultCount++;
       const textResult = 'result' in message ? (message as { result?: string }).result : null;
       log(`Result #${resultCount}: subtype=${message.subtype}${textResult ? ` text=${textResult.slice(0, 200)}` : ''}`);
+
+      // Detect "Prompt is too long" — don't emit it as a success result
+      if (textResult === 'Prompt is too long') {
+        promptTooLong = true;
+        log('Detected "Prompt is too long" — will reset session and retry');
+        continue;
+      }
+
       writeOutput({
         status: 'success',
         result: textResult || null,
@@ -491,8 +500,8 @@ async function runQuery(
   }
 
   ipcPolling = false;
-  log(`Query done. Messages: ${messageCount}, results: ${resultCount}, lastAssistantUuid: ${lastAssistantUuid || 'none'}, closedDuringQuery: ${closedDuringQuery}`);
-  return { newSessionId, lastAssistantUuid, closedDuringQuery };
+  log(`Query done. Messages: ${messageCount}, results: ${resultCount}, lastAssistantUuid: ${lastAssistantUuid || 'none'}, closedDuringQuery: ${closedDuringQuery}, promptTooLong: ${promptTooLong}`);
+  return { newSessionId, lastAssistantUuid, closedDuringQuery, promptTooLong };
 }
 
 async function main(): Promise<void> {
@@ -547,6 +556,26 @@ async function main(): Promise<void> {
       log(`Starting query (session: ${sessionId || 'new'}, resumeAt: ${resumeAt || 'latest'})...`);
 
       const queryResult = await runQuery(prompt, sessionId, mcpServerPath, containerInput, sdkEnv, resumeAt);
+
+      // Handle "Prompt is too long" by deleting the session file and retrying fresh
+      if (queryResult.promptTooLong) {
+        if (!sessionId) {
+          // Already a fresh session — system prompt/CLAUDE.md is too large, can't recover
+          log('Prompt too long on fresh session — cannot recover, system prompt may be too large');
+          writeOutput({ status: 'error', result: null, error: 'Prompt is too long (even on fresh session)' });
+          process.exit(1);
+        }
+        log(`Prompt too long for session ${sessionId}, deleting session file and retrying fresh`);
+        const projectDir = '/home/node/.claude/projects/-workspace-group';
+        const sessionFile = path.join(projectDir, `${sessionId}.jsonl`);
+        const sessionDir = path.join(projectDir, sessionId);
+        try { fs.unlinkSync(sessionFile); log(`Deleted ${sessionFile}`); } catch { /* ignore */ }
+        try { fs.rmSync(sessionDir, { recursive: true }); log(`Deleted ${sessionDir}`); } catch { /* ignore */ }
+        sessionId = undefined;
+        resumeAt = undefined;
+        continue;
+      }
+
       if (queryResult.newSessionId) {
         sessionId = queryResult.newSessionId;
       }

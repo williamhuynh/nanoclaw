@@ -55,13 +55,22 @@ Analyze journal entries for:
 
 ### 3. Validate Predictions
 
-For each prediction in the journal or mental model:
+Review all predictions in journal entries AND the mental model's "Active Hypotheses" section.
 
-- **Validated:** Prediction came true → increase confidence in underlying belief
-- **Invalidated:** Prediction was wrong → decrease confidence, update mental model
-- **Pending:** No data yet → keep watching
+**Promotion criteria:**
 
-Create new predictions based on patterns extracted above.
+| Status | Criteria | Action |
+|--------|----------|--------|
+| Validated (2+ sessions) | Confirmed by evidence across multiple sessions | Promote to stated belief in mental model at 80%+ confidence. Remove from Active Hypotheses. |
+| Validated (1 session) | Confirmed once but not yet cross-session | Keep as hypothesis. Boost confidence by 10-15%. |
+| Pending (< 2 weeks) | No confirming or disconfirming data yet | Keep watching. No change. |
+| Stale (> 2 weeks) | No data after 2+ weeks | Flag for review. Consider rephrasing to be more testable, or retire if untestable. |
+| Invalidated | Evidence contradicts prediction | Remove from Active Hypotheses. Update or remove related mental model beliefs. Document why in journal. |
+
+**After validation, create new predictions** based on patterns extracted above. Ensure each prediction specifies:
+- What you expect to observe
+- How you'd validate it (specific scenario or test)
+- Starting confidence level
 
 ### 4. Calibrate Confidence
 

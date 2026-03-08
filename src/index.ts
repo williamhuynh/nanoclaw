@@ -36,6 +36,7 @@ import {
   initDatabase,
   setRegisteredGroup,
   setRouterState,
+  deleteSession,
   setSession,
   storeChatMetadata,
   storeMessage,
@@ -278,7 +279,33 @@ async function runAgent(
   onOutput?: (output: ContainerOutput) => Promise<void>,
 ): Promise<'success' | 'error'> {
   const isMain = group.isMain === true;
-  const sessionId = sessions[group.folder];
+  let sessionId: string | undefined = sessions[group.folder];
+
+  // Proactively reset sessions whose .jsonl file exceeds 2MB to avoid
+  // "Prompt is too long" errors from unbounded session growth
+  const MAX_SESSION_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+  if (sessionId) {
+    const sessionFile = path.join(
+      DATA_DIR, 'sessions', group.folder, '.claude', 'projects',
+      '-workspace-group', `${sessionId}.jsonl`,
+    );
+    try {
+      const stats = fs.statSync(sessionFile);
+      if (stats.size > MAX_SESSION_FILE_SIZE) {
+        logger.warn(
+          { group: group.name, sessionFile, size: stats.size },
+          `Session file exceeds ${MAX_SESSION_FILE_SIZE} bytes — starting fresh session`,
+        );
+        try { fs.unlinkSync(sessionFile); } catch { /* ignore */ }
+        try { fs.rmSync(sessionFile.replace('.jsonl', ''), { recursive: true }); } catch { /* ignore */ }
+        delete sessions[group.folder];
+        deleteSession(group.folder);
+        sessionId = undefined;
+      }
+    } catch {
+      // File doesn't exist or can't be read — that's fine, let the container handle it
+    }
+  }
 
   // Update tasks snapshot for container to read (filtered by group)
   const tasks = getAllTasks();
@@ -337,6 +364,12 @@ async function runAgent(
     }
 
     if (output.status === 'error') {
+      // If the error is "Prompt is too long", clear the session so next run starts fresh
+      if (output.error?.includes('Prompt is too long')) {
+        logger.warn({ group: group.name }, 'Prompt too long — clearing session for fresh start');
+        delete sessions[group.folder];
+        deleteSession(group.folder);
+      }
       logger.error(
         { group: group.name, error: output.error },
         'Container agent error',
