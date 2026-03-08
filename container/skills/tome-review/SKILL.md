@@ -92,9 +92,18 @@ If miscalibrated:
 
 The mental model should reflect the CURRENT state. History lives in the journal.
 
-### 6. Update Mental Model
+### 6. Draft or Apply Changes
 
-Apply all findings:
+**Draft mode (default when automated / cron):**
+Write proposed changes to `tome/review-draft.md` instead of modifying the mental model directly. Include:
+- What would change and why
+- Supporting evidence (journal references)
+- Confidence level for each proposed change
+
+Only apply changes that meet a **high confidence bar** (3+ consistent signals across sessions). Everything else goes in the draft for the user to review.
+
+**Direct mode (when user explicitly requests):**
+Apply all findings directly to the mental model:
 1. Update current goals
 2. Adjust values confidence levels
 3. Refine communication preferences
@@ -102,10 +111,12 @@ Apply all findings:
 5. Add/remove behavioral patterns
 6. Rotate recent learning events
 
+If no meaningful changes are warranted, do nothing. Don't update for the sake of updating.
+
 ### 7. Summary
 
 Report to user:
-- Key updates made
+- Key updates made (or proposed in draft)
 - Patterns extracted
 - Predictions validated/invalidated
 - Gaps still to explore

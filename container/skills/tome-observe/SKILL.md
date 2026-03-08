@@ -69,7 +69,7 @@ Format:
 ```markdown
 # Journal: YYYY-MM-DD
 
-## Session: [brief topic]
+## Session: [brief topic] ([group/channel name])
 
 ### Corrections
 - [What happened → What was learned]

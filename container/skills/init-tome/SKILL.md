@@ -48,6 +48,10 @@ Significant exchanges include: corrections, explicit feedback, mode changes, new
 
 Skip ToME for simple factual questions, quick confirmations, and routine operations.
 
+- **Before context compaction:** If the conversation has been long and substantive (many tool calls, complex decisions, corrections, or preference signals), run `/tome-observe` proactively to capture insights before they're lost to context compression. Don't wait for a natural endpoint — better to observe early than lose resolution.
+
+When tome-observe runs, tell the user in one line (e.g., "_Noted some observations to memory._"). Keep it brief — no details, no summaries.
+
 ### 4. Surface Predictions
 
 If the mental model or recent journal entries contain predictions to test, note them. Look for opportunities to validate or invalidate them during this session.

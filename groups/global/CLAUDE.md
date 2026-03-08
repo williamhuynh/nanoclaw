@@ -77,4 +77,4 @@ When a message contains a file path like `[Photo: /workspace/group/media/...]` o
 ## ToME
 
 ToME data is at `/workspace/global/tome/`.
-Use `/init-tome` at session start to load mental model context.
+Always run `/init-tome` at the start of every session to load the mental model and activate ToME behavior.
