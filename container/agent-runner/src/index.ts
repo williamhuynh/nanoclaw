@@ -57,6 +57,7 @@ interface SDKUserMessage {
 
 const IPC_INPUT_DIR = '/workspace/ipc/input';
 const IPC_INPUT_CLOSE_SENTINEL = path.join(IPC_INPUT_DIR, '_close');
+const IPC_USAGE_DIR = '/workspace/ipc/usage';
 const IPC_POLL_MS = 500;
 
 /**
@@ -112,6 +113,35 @@ function writeOutput(output: ContainerOutput): void {
   console.log(OUTPUT_START_MARKER);
   console.log(JSON.stringify(output));
   console.log(OUTPUT_END_MARKER);
+}
+
+interface UsageMetadata {
+  tokens_used: number;
+  max_tokens: number;
+  cost_usd: number;
+  num_turns: number;
+  duration_ms: number;
+  timestamp: string;
+  session_id: string;
+  model_usage: Record<string, {
+    input_tokens: number;
+    output_tokens: number;
+    cache_read_tokens: number;
+    cache_creation_tokens: number;
+    cost_usd: number;
+  }>;
+}
+
+function writeUsageMetadata(metadata: UsageMetadata): void {
+  try {
+    fs.mkdirSync(IPC_USAGE_DIR, { recursive: true });
+    const filename = `${Date.now()}.json`;
+    const filePath = path.join(IPC_USAGE_DIR, filename);
+    fs.writeFileSync(filePath, JSON.stringify(metadata, null, 2));
+    log(`Wrote usage metadata to ${filePath}`);
+  } catch (err) {
+    log(`Failed to write usage metadata: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 function log(message: string): void {
@@ -481,8 +511,25 @@ async function runQuery(
 
     if (message.type === 'result') {
       resultCount++;
-      const textResult = 'result' in message ? (message as { result?: string }).result : null;
-      log(`Result #${resultCount}: subtype=${message.subtype}${textResult ? ` text=${textResult.slice(0, 200)}` : ''}`);
+      const resultMsg = message as {
+        result?: string;
+        subtype: string;
+        total_cost_usd?: number;
+        num_turns?: number;
+        duration_ms?: number;
+        usage?: { input_tokens?: number; output_tokens?: number };
+        modelUsage?: Record<string, {
+          inputTokens: number;
+          outputTokens: number;
+          cacheReadInputTokens: number;
+          cacheCreationInputTokens: number;
+          costUSD: number;
+          contextWindow: number;
+          maxOutputTokens: number;
+        }>;
+      };
+      const textResult = resultMsg.result ?? null;
+      log(`Result #${resultCount}: subtype=${resultMsg.subtype}${textResult ? ` text=${textResult.slice(0, 200)}` : ''}`);
 
       // Detect "Prompt is too long" — don't emit it as a success result
       if (textResult === 'Prompt is too long') {
@@ -490,6 +537,41 @@ async function runQuery(
         log('Detected "Prompt is too long" — will reset session and retry');
         continue;
       }
+
+      // Write usage metadata for telemetry
+      const usage = resultMsg.usage;
+      const modelUsage = resultMsg.modelUsage;
+      const tokensUsed = (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0);
+      // Derive max_tokens from the first model's contextWindow, or default
+      let maxTokens = 200000;
+      if (modelUsage) {
+        const firstModel = Object.values(modelUsage)[0];
+        if (firstModel?.contextWindow) {
+          maxTokens = firstModel.contextWindow;
+        }
+      }
+      const perModel: UsageMetadata['model_usage'] = {};
+      if (modelUsage) {
+        for (const [model, mu] of Object.entries(modelUsage)) {
+          perModel[model] = {
+            input_tokens: mu.inputTokens,
+            output_tokens: mu.outputTokens,
+            cache_read_tokens: mu.cacheReadInputTokens,
+            cache_creation_tokens: mu.cacheCreationInputTokens,
+            cost_usd: mu.costUSD,
+          };
+        }
+      }
+      writeUsageMetadata({
+        tokens_used: tokensUsed,
+        max_tokens: maxTokens,
+        cost_usd: resultMsg.total_cost_usd ?? 0,
+        num_turns: resultMsg.num_turns ?? 0,
+        duration_ms: resultMsg.duration_ms ?? 0,
+        timestamp: new Date().toISOString(),
+        session_id: newSessionId || sessionId || '',
+        model_usage: perModel,
+      });
 
       writeOutput({
         status: 'success',
