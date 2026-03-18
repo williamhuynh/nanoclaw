@@ -103,11 +103,18 @@ export function startIpcWatcher(deps: IpcDeps): void {
                   const groupHostPath = resolveGroupFolderPath(sourceGroup);
                   let hostFilePath: string;
                   if (data.filePath.startsWith('/workspace/group/')) {
-                    hostFilePath = data.filePath.replace('/workspace/group', groupHostPath);
+                    hostFilePath = data.filePath.replace(
+                      '/workspace/group',
+                      groupHostPath,
+                    );
                   } else {
                     hostFilePath = data.filePath;
                   }
-                  await deps.sendPhoto(data.chatJid, hostFilePath, data.caption as string | undefined);
+                  await deps.sendPhoto(
+                    data.chatJid,
+                    hostFilePath,
+                    data.caption as string | undefined,
+                  );
                   logger.info(
                     { chatJid: data.chatJid, hostFilePath, sourceGroup },
                     'IPC photo sent',
