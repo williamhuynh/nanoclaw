@@ -333,6 +333,37 @@ Use available_groups.json to find the JID for a group. The folder name must be c
   },
 );
 
+server.tool(
+  'send_photo',
+  "Send a photo/image file to the user or group. The file must exist at the given path inside the container. Supported paths: /workspace/group/... (group files). Optional caption is sent as the photo caption.",
+  {
+    file_path: z.string().describe('Absolute path to the image file inside the container (e.g. /workspace/group/diagram.png)'),
+    caption: z.string().optional().describe('Optional caption for the photo'),
+    sender: z.string().optional().describe('Your role/identity name (e.g. "Sky"). Not used for the photo but logged.'),
+  },
+  async (args) => {
+    if (!fs.existsSync(args.file_path)) {
+      return {
+        content: [{ type: 'text' as const, text: `File not found: ${args.file_path}` }],
+        isError: true,
+      };
+    }
+
+    const data: Record<string, string | undefined> = {
+      type: 'send_photo',
+      chatJid,
+      filePath: args.file_path,
+      caption: args.caption,
+      groupFolder,
+      timestamp: new Date().toISOString(),
+    };
+
+    writeIpcFile(MESSAGES_DIR, data);
+
+    return { content: [{ type: 'text' as const, text: 'Photo queued for sending.' }] };
+  },
+);
+
 // Start the stdio transport
 const transport = new StdioServerTransport();
 await server.connect(transport);

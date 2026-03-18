@@ -1,11 +1,11 @@
 ---
 name: add-tome
-description: Install ToME-AI (Theory of Mind Expanded for AI). Creates mental model files, patches container runner for write access, and adds CLAUDE.md references. Safe to re-run after upstream merges.
+description: Install ToME-AI (Theory of Mind Expanded for AI). Clones the external tome repo, ensures container runner mounts it, and adds CLAUDE.md references. Safe to re-run after upstream merges.
 ---
 
 # Add ToME-AI
 
-Install the ToME-AI framework into NanoClaw. This creates the mental model directory structure, ensures container write access, and wires up CLAUDE.md references.
+Install the ToME-AI framework into NanoClaw. ToME lives in a standalone repo at `~/tome` (configurable via `TOME_DIR` env var). The container runner mounts it and syncs skills automatically.
 
 Safe to re-run — all steps are idempotent.
 
@@ -14,49 +14,30 @@ Safe to re-run — all steps are idempotent.
 Check current state:
 
 ```bash
-# Check if tome directory exists
-ls -la groups/global/tome/ 2>/dev/null
+# Check if tome repo exists
+ls -la ~/tome/ 2>/dev/null
 
-# Check if container runner has tome mount
-grep -n 'tome' src/container-runner.ts
+# Check if container runner imports TOME_DIR
+grep -n 'TOME_DIR' src/container-runner.ts
 
 # Check if global CLAUDE.md has ToME reference
 grep -n 'ToME' groups/global/CLAUDE.md
 ```
 
-## Step 1: Create Directory Structure
+## Step 1: Clone or Create ToME Repo
+
+If `~/tome` does not exist, either clone it from the user's remote or create the structure:
 
 ```bash
-mkdir -p groups/global/tome/journal
+# Option A: Clone from remote
+git clone <remote-url> ~/tome
+
+# Option B: Create fresh
+mkdir -p ~/tome/journal ~/tome/skills
+touch ~/tome/journal/.gitkeep
 ```
 
-### Update .gitignore
-
-The `.gitignore` has `groups/global/*` which ignores everything under `groups/global/`. Add these lines after the `!groups/global/CLAUDE.md` line to whitelist tome:
-
-```gitignore
-!groups/global/tome/
-groups/global/tome/journal/*
-!groups/global/tome/journal/.gitkeep
-```
-
-This tracks the `tome/` directory and mental model template, but ignores journal contents (runtime data) except the `.gitkeep` that preserves the directory structure.
-
-Check if already present:
-
-```bash
-grep 'tome' .gitignore
-```
-
-### Create mental model template
-
-Create a `.gitkeep` to track the journal directory:
-
-```bash
-touch groups/global/tome/journal/.gitkeep
-```
-
-If `groups/global/tome/mental-model.md` does not exist, create it from the template in `container/skills/init-tome/SKILL.md` or use this minimal template:
+If creating fresh, create `~/tome/mental-model.md` from this template:
 
 ```markdown
 # Mental Model
@@ -113,51 +94,40 @@ If `groups/global/tome/mental-model.md` does not exist, create it from the templ
 *Top 5-10 events, rotated.*
 ```
 
-## Step 2: Patch Container Runner
+Also create `~/tome/.gitignore`:
 
-Check if `src/container-runner.ts` already has the tome mount:
+```gitignore
+journal/*
+!journal/.gitkeep
+review-draft.md
+```
+
+And `~/tome/CLAUDE.md` — see the tome repo's own CLAUDE.md for the template.
+
+## Step 2: Verify Container Runner
+
+The container runner should already import `TOME_DIR` from config and mount `~/tome` into containers. Verify:
 
 ```bash
-grep 'tomeDir' src/container-runner.ts
+grep 'TOME_DIR' src/container-runner.ts
+grep 'TOME_DIR' src/config.ts
 ```
 
-If NOT present, add tome mounts in **both** branches of `buildVolumeMounts()`:
-
-**Main branch** (inside `if (isMain)`, after the group folder mount):
+If `TOME_DIR` is NOT in `src/config.ts`, add it:
 
 ```typescript
-    // ToME mental model directory (read-write, same path as non-main groups)
-    const mainTomeDir = path.join(GROUPS_DIR, 'global', 'tome');
-    if (fs.existsSync(mainTomeDir)) {
-      mounts.push({
-        hostPath: mainTomeDir,
-        containerPath: '/workspace/global/tome',
-        readonly: false,
-      });
-    }
+// ToME mental model directory (external repo, portable across environments)
+export const TOME_DIR = path.resolve(
+  process.env.TOME_DIR || path.join(HOME_DIR, 'tome'),
+);
 ```
 
-**Non-main branch** (inside `else`, after the read-only global directory mount):
+If the container runner still uses `path.join(GROUPS_DIR, 'global', 'tome')`, update both mount blocks (main and non-main) to use `TOME_DIR` instead.
 
-```typescript
-    // ToME mental model directory (read-write for non-main groups)
-    // Overlays the read-only global mount for just the tome/ subdirectory
-    const tomeDir = path.join(GROUPS_DIR, 'global', 'tome');
-    if (fs.existsSync(tomeDir)) {
-      mounts.push({
-        hostPath: tomeDir,
-        containerPath: '/workspace/global/tome',
-        readonly: false,
-      });
-    }
-```
-
-Also add tests in `src/container-runner.test.ts` that verify the tome mount appears in spawn args for **both** main and non-main groups when the tome directory exists. Follow the existing test patterns in that file (mock `existsSync` to return `true` for the tome path, check spawn args for the `-v` mount).
-
-After patching:
+The container runner should also sync skills from `TOME_DIR/skills/` in addition to `container/skills/`. Check for:
 
 ```bash
-npm test && npm run build
+grep 'tomeSkillsSrc' src/container-runner.ts
 ```
 
 ## Step 3: Add CLAUDE.md Reference
@@ -175,37 +145,36 @@ If NOT present, append to `groups/global/CLAUDE.md`:
 ## ToME
 
 ToME data is at `/workspace/global/tome/`.
-Use `/init-tome` at session start to load mental model context.
+Always run `/init-tome` at the start of every session to load the mental model and activate ToME behavior.
 ```
 
-## Step 4: Verify Container Skills
+## Step 4: Verify Skills in ToME Repo
 
-Confirm the four portable skills exist in `container/skills/`:
+Confirm the four skills exist in `~/tome/skills/`:
 
 ```bash
-ls container/skills/init-tome/SKILL.md
-ls container/skills/tome-observe/SKILL.md
-ls container/skills/tome-adapt/SKILL.md
-ls container/skills/tome-review/SKILL.md
+ls ~/tome/skills/init-tome/SKILL.md
+ls ~/tome/skills/tome-observe/SKILL.md
+ls ~/tome/skills/tome-adapt/SKILL.md
+ls ~/tome/skills/tome-review/SKILL.md
 ```
 
-If any are missing, report which ones need to be created.
+If any are missing, they need to be created in the tome repo.
 
 ## Step 5: Verify
 
 ```bash
-# Directory structure
-ls -la groups/global/tome/
-ls -la groups/global/tome/journal/
+# ToME repo exists
+ls -la ~/tome/mental-model.md
 
-# Container runner patched
-grep 'tomeDir' src/container-runner.ts
+# Container runner uses TOME_DIR
+grep 'TOME_DIR' src/container-runner.ts
 
 # CLAUDE.md reference
 grep 'ToME' groups/global/CLAUDE.md
 
-# Skills exist
-ls container/skills/*/SKILL.md | grep tome
+# Skills exist in tome repo
+ls ~/tome/skills/*/SKILL.md
 
 # Tests pass
 npm test
@@ -216,14 +185,23 @@ npm run build
 
 Report results.
 
+## Configuration
+
+Set `TOME_DIR` in `.env` to override the default `~/tome` path:
+
+```bash
+TOME_DIR=/path/to/your/tome
+```
+
 ## Removal
 
-To remove ToME-AI:
+To remove ToME-AI from NanoClaw:
 
-1. Remove both tome mount blocks (main and non-main) from `src/container-runner.ts`
-2. Remove both tome mount tests (main and non-main) from `src/container-runner.test.ts`
-3. Remove the ToME section from `groups/global/CLAUDE.md`
-4. Remove the tome `.gitignore` lines (3 lines after `!groups/global/CLAUDE.md`)
-5. Delete `container/skills/init-tome/`, `container/skills/tome-observe/`, `container/skills/tome-adapt/`, `container/skills/tome-review/`
-6. Optionally delete `groups/global/tome/` (preserves mental model data if kept)
-7. `npm test && npm run build`
+1. Remove `TOME_DIR` import and both tome mount blocks from `src/container-runner.ts`
+2. Remove the tome skills sync block from `src/container-runner.ts`
+3. Remove both tome mount tests from `src/container-runner.test.ts`
+4. Remove the ToME section from `groups/global/CLAUDE.md`
+5. Remove `TOME_DIR` from `src/config.ts`
+6. `npm test && npm run build`
+
+The `~/tome` repo is independent and can be kept or deleted separately.

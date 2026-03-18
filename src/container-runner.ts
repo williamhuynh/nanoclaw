@@ -14,6 +14,7 @@ import {
   GROUPS_DIR,
   IDLE_TIMEOUT,
   TIMEZONE,
+  TOME_DIR,
 } from './config.js';
 import { readEnvFile } from './env.js';
 import { resolveGroupFolderPath, resolveGroupIpcPath } from './group-folder.js';
@@ -92,11 +93,10 @@ function buildVolumeMounts(
       readonly: false,
     });
 
-    // ToME mental model directory (read-write, same path as non-main groups)
-    const mainTomeDir = path.join(GROUPS_DIR, 'global', 'tome');
-    if (fs.existsSync(mainTomeDir)) {
+    // ToME mental model directory (external repo, read-write)
+    if (fs.existsSync(TOME_DIR)) {
       mounts.push({
-        hostPath: mainTomeDir,
+        hostPath: TOME_DIR,
         containerPath: '/workspace/global/tome',
         readonly: false,
       });
@@ -120,16 +120,29 @@ function buildVolumeMounts(
       });
     }
 
-    // ToME mental model directory (read-write for non-main groups)
+    // ToME mental model directory (external repo, read-write)
     // Overlays the read-only global mount for just the tome/ subdirectory
-    const tomeDir = path.join(GROUPS_DIR, 'global', 'tome');
-    if (fs.existsSync(tomeDir)) {
+    if (fs.existsSync(TOME_DIR)) {
       mounts.push({
-        hostPath: tomeDir,
+        hostPath: TOME_DIR,
         containerPath: '/workspace/global/tome',
         readonly: false,
       });
     }
+  }
+
+  // Mission Control app source (read-write for self-editing via embedded agent)
+  const missionControlDir = path.join(
+    process.env.HOME || '/root',
+    'apps',
+    'mission-control',
+  );
+  if (fs.existsSync(missionControlDir)) {
+    mounts.push({
+      hostPath: missionControlDir,
+      containerPath: '/workspace/mission-control',
+      readonly: false,
+    });
   }
 
   // Gmail credentials directory
@@ -181,6 +194,17 @@ function buildVolumeMounts(
   if (fs.existsSync(skillsSrc)) {
     for (const skillDir of fs.readdirSync(skillsSrc)) {
       const srcDir = path.join(skillsSrc, skillDir);
+      if (!fs.statSync(srcDir).isDirectory()) continue;
+      const dstDir = path.join(skillsDst, skillDir);
+      fs.cpSync(srcDir, dstDir, { recursive: true });
+    }
+  }
+
+  // Sync ToME skills from external repo (overrides any same-named container skills)
+  const tomeSkillsSrc = path.join(TOME_DIR, 'skills');
+  if (fs.existsSync(tomeSkillsSrc)) {
+    for (const skillDir of fs.readdirSync(tomeSkillsSrc)) {
+      const srcDir = path.join(tomeSkillsSrc, skillDir);
       if (!fs.statSync(srcDir).isDirectory()) continue;
       const dstDir = path.join(skillsDst, skillDir);
       fs.cpSync(srcDir, dstDir, { recursive: true });

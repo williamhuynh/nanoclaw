@@ -42,6 +42,11 @@ export const STORE_DIR = path.resolve(PROJECT_ROOT, 'store');
 export const GROUPS_DIR = path.resolve(PROJECT_ROOT, 'groups');
 export const DATA_DIR = path.resolve(PROJECT_ROOT, 'data');
 
+// ToME mental model directory (external repo, portable across environments)
+export const TOME_DIR = path.resolve(
+  process.env.TOME_DIR || path.join(HOME_DIR, 'tome'),
+);
+
 export const CONTAINER_IMAGE =
   process.env.CONTAINER_IMAGE || 'nanoclaw-agent:latest';
 export const CONTAINER_TIMEOUT = parseInt(

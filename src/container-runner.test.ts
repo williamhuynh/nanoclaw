@@ -15,6 +15,7 @@ vi.mock('./config.js', () => ({
   GROUPS_DIR: '/tmp/nanoclaw-test-groups',
   IDLE_TIMEOUT: 1800000, // 30min
   TIMEZONE: 'America/Los_Angeles',
+  TOME_DIR: '/home/testuser/tome',
 }));
 
 // Mock logger
@@ -221,10 +222,10 @@ describe('container-runner tome mount', () => {
   });
 
   it('non-main group gets read-write tome mount when tome directory exists', async () => {
-    // Make existsSync return true for paths containing 'global' and 'tome'
+    // Make existsSync return true for TOME_DIR and global dir
     const existsSyncMock = fs.existsSync as ReturnType<typeof vi.fn>;
     existsSyncMock.mockImplementation((p: string) => {
-      if (typeof p === 'string' && p.includes('global') && p.includes('tome')) {
+      if (typeof p === 'string' && p === '/home/testuser/tome') {
         return true;
       }
       // Also return true for the global dir itself (needed for the global mount)
@@ -251,7 +252,7 @@ describe('container-runner tome mount', () => {
     // Read-write mounts use: -v host:container (no :ro suffix)
     const tomeVolumeIdx = spawnArgs.findIndex(
       (arg: string) =>
-        arg.includes('/global/tome') && arg.includes('/workspace/global/tome'),
+        arg.includes('/home/testuser/tome') && arg.includes('/workspace/global/tome'),
     );
     expect(tomeVolumeIdx).toBeGreaterThan(-1);
 
@@ -279,7 +280,7 @@ describe('container-runner tome mount', () => {
   it('main group gets read-write tome mount when tome directory exists', async () => {
     const existsSyncMock = fs.existsSync as ReturnType<typeof vi.fn>;
     existsSyncMock.mockImplementation((p: string) => {
-      if (typeof p === 'string' && p.includes('global') && p.includes('tome')) {
+      if (typeof p === 'string' && p === '/home/testuser/tome') {
         return true;
       }
       // Return true for .env (shadow mount)
@@ -304,7 +305,7 @@ describe('container-runner tome mount', () => {
     // Find the tome mount in spawn args
     const tomeVolumeIdx = spawnArgs.findIndex(
       (arg: string) =>
-        arg.includes('/global/tome') && arg.includes('/workspace/global/tome'),
+        arg.includes('/home/testuser/tome') && arg.includes('/workspace/global/tome'),
     );
     expect(tomeVolumeIdx).toBeGreaterThan(-1);
 
