@@ -24,6 +24,15 @@ export interface IpcDeps {
     registeredJids: Set<string>,
   ) => void;
   onTasksChanged: () => void;
+  // Delegation: run a prompt in another group's container and return the result
+  runDelegation: (
+    targetFolder: string,
+    prompt: string,
+  ) => Promise<{
+    status: 'success' | 'error';
+    result: string | null;
+    error?: string;
+  }>;
 }
 
 let ipcWatcherRunning = false;
@@ -199,6 +208,9 @@ export async function processTaskIpc(
     groupFolder?: string;
     chatJid?: string;
     targetJid?: string;
+    // For delegate
+    targetGroup?: string;
+    delegationId?: string;
     // For register_group
     jid?: string;
     name?: string;
@@ -486,6 +498,100 @@ export async function processTaskIpc(
           { data },
           'Invalid register_group request - missing required fields',
         );
+      }
+      break;
+
+    case 'delegate':
+      if (!data.targetGroup || !data.prompt || !data.delegationId) {
+        logger.warn(
+          { sourceGroup, data },
+          'Invalid delegate request - missing required fields',
+        );
+        break;
+      }
+      if (!isMain) {
+        logger.warn({ sourceGroup }, 'Unauthorized delegate attempt blocked');
+        break;
+      }
+      {
+        // Resolve target group by folder name
+        const targetEntry = Object.values(registeredGroups).find(
+          (g) => g.folder === data.targetGroup,
+        );
+        if (!targetEntry) {
+          logger.warn(
+            { sourceGroup, targetGroup: data.targetGroup },
+            'Delegate target group not found',
+          );
+          // Write error result back to source group
+          const inputDir = path.join(DATA_DIR, 'ipc', sourceGroup, 'input');
+          fs.mkdirSync(inputDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(inputDir, `delegation_${data.delegationId}.json`),
+            JSON.stringify({
+              type: 'delegation_result',
+              delegationId: data.delegationId,
+              status: 'error',
+              result: null,
+              error: `Target group folder '${data.targetGroup}' not found`,
+            }),
+          );
+          break;
+        }
+
+        const delegationId = data.delegationId;
+        const targetFolder = data.targetGroup;
+        const prompt = data.prompt;
+
+        logger.info(
+          { sourceGroup, targetFolder, delegationId },
+          'Delegation started',
+        );
+
+        // Fire-and-forget: don't block the IPC loop
+        deps
+          .runDelegation(targetFolder, prompt)
+          .then((result) => {
+            const inputDir = path.join(DATA_DIR, 'ipc', sourceGroup, 'input');
+            fs.mkdirSync(inputDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(inputDir, `delegation_${delegationId}.json`),
+              JSON.stringify({
+                type: 'delegation_result',
+                delegationId,
+                status: result.status,
+                result: result.result,
+                error: result.error,
+              }),
+            );
+            logger.info(
+              {
+                sourceGroup,
+                targetFolder,
+                delegationId,
+                status: result.status,
+              },
+              'Delegation completed',
+            );
+          })
+          .catch((err) => {
+            const inputDir = path.join(DATA_DIR, 'ipc', sourceGroup, 'input');
+            fs.mkdirSync(inputDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(inputDir, `delegation_${delegationId}.json`),
+              JSON.stringify({
+                type: 'delegation_result',
+                delegationId,
+                status: 'error',
+                result: null,
+                error: err instanceof Error ? err.message : String(err),
+              }),
+            );
+            logger.error(
+              { sourceGroup, targetFolder, delegationId, err },
+              'Delegation failed',
+            );
+          });
       }
       break;
 
