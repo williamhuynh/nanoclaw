@@ -19,7 +19,11 @@ groups/global/*
 groups/email/*
 !groups/main/CLAUDE.md
 !groups/global/CLAUDE.md
+!groups/global/contexts/
 !groups/email/CLAUDE.md
+!groups/linkedin-agent/
+groups/linkedin-agent/*
+!groups/linkedin-agent/CLAUDE.md
 !groups/homeschoollms-dev/
 groups/homeschoollms-dev/*
 !groups/homeschoollms-dev/CLAUDE.md
