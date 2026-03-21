@@ -21,5 +21,6 @@ The following core files have local customisations that must be reviewed when me
 | File | Customisation | Purpose |
 |------|--------------|---------|
 | `container/agent-runner/src/index.ts` | Usage metadata logging | Writes token/context usage to `/workspace/ipc/usage/` after each run for Mission Control telemetry |
+| `src/ipc.ts` | Delegation command handler | Agent-to-agent delegation via orchestrator IPC |
 
 When pulling upstream changes, check these files for merge conflicts and ensure customisations are preserved.
