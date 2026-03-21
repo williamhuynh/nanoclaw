@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import {
   _initTestDatabase,
@@ -64,6 +64,10 @@ beforeEach(() => {
     getAvailableGroups: () => [],
     writeGroupsSnapshot: () => {},
     onTasksChanged: () => {},
+    runDelegation: vi.fn(async () => ({
+      status: 'success' as const,
+      result: 'mock delegation result',
+    })),
   };
 });
 
@@ -676,5 +680,101 @@ describe('register_group success', () => {
     );
 
     expect(getRegisteredGroup('partial@g.us')).toBeUndefined();
+  });
+});
+
+// --- delegate authorization ---
+
+describe('delegate authorization', () => {
+  it('main group can delegate to another group', async () => {
+    await processTaskIpc(
+      {
+        type: 'delegate',
+        targetGroup: 'other-group',
+        prompt: 'do something in other group',
+        delegationId: 'del-001',
+      },
+      'whatsapp_main',
+      true,
+      deps,
+    );
+
+    // Fire-and-forget: wait for async delegation to complete
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(deps.runDelegation).toHaveBeenCalledWith(
+      'other-group',
+      'do something in other group',
+    );
+  });
+
+  it('non-main group cannot delegate', async () => {
+    await processTaskIpc(
+      {
+        type: 'delegate',
+        targetGroup: 'third-group',
+        prompt: 'unauthorized delegation',
+        delegationId: 'del-002',
+      },
+      'other-group',
+      false,
+      deps,
+    );
+
+    // Fire-and-forget: wait to confirm nothing happened
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(deps.runDelegation).not.toHaveBeenCalled();
+  });
+
+  it('rejects delegate with missing fields', async () => {
+    // Missing prompt
+    await processTaskIpc(
+      {
+        type: 'delegate',
+        targetGroup: 'other-group',
+        delegationId: 'del-003',
+      },
+      'whatsapp_main',
+      true,
+      deps,
+    );
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(deps.runDelegation).not.toHaveBeenCalled();
+
+    // Missing delegationId
+    await processTaskIpc(
+      {
+        type: 'delegate',
+        targetGroup: 'other-group',
+        prompt: 'missing id',
+      },
+      'whatsapp_main',
+      true,
+      deps,
+    );
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(deps.runDelegation).not.toHaveBeenCalled();
+  });
+
+  it('rejects delegate to non-existent group folder', async () => {
+    await processTaskIpc(
+      {
+        type: 'delegate',
+        targetGroup: 'nonexistent-group',
+        prompt: 'delegate to nowhere',
+        delegationId: 'del-004',
+      },
+      'whatsapp_main',
+      true,
+      deps,
+    );
+
+    // Fire-and-forget: wait for async delegation to complete
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(deps.runDelegation).not.toHaveBeenCalled();
   });
 });
