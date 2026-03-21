@@ -838,6 +838,54 @@ async function main(): Promise<void> {
         writeTasksSnapshot(group.folder, group.isMain === true, taskRows);
       }
     },
+    runDelegation: async (targetFolder, prompt) => {
+      // Find the registered group entry by folder name
+      const targetEntry = Object.entries(registeredGroups).find(
+        ([, g]) => g.folder === targetFolder,
+      );
+      if (!targetEntry) {
+        return {
+          status: 'error' as const,
+          result: null,
+          error: `Group with folder "${targetFolder}" not registered`,
+        };
+      }
+      const [targetJid, targetGroup] = targetEntry;
+
+      // Collect all output chunks into a single result
+      let resultText: string | null = null;
+
+      const status = await runAgent(
+        targetGroup,
+        prompt,
+        targetJid,
+        async (output) => {
+          if (output.result) {
+            const raw =
+              typeof output.result === 'string'
+                ? output.result
+                : JSON.stringify(output.result);
+            const text = raw
+              .replace(/<internal>[\s\S]*?<\/internal>/g, '')
+              .trim();
+            if (text) {
+              resultText = resultText ? `${resultText}\n\n${text}` : text;
+            }
+          }
+          // Signal container to exit — delegation is single-query
+          const ipcInputDir = path.join(DATA_DIR, 'ipc', targetFolder, 'input');
+          fs.mkdirSync(ipcInputDir, { recursive: true });
+          fs.writeFileSync(path.join(ipcInputDir, '_close'), '');
+        },
+      );
+
+      return {
+        status:
+          status === 'success' ? ('success' as const) : ('error' as const),
+        result: resultText,
+        error: status === 'error' ? 'Agent returned error' : undefined,
+      };
+    },
   });
   queue.setProcessMessagesFn(processGroupMessages);
   recoverPendingMessages();
