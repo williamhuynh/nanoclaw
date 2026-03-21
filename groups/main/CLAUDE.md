@@ -253,6 +253,46 @@ The task will run in that group's context with access to their files and memory.
 
 ---
 
+## Delegation
+
+You can delegate work to specialist agents. Write a JSON file to your IPC tasks directory:
+
+```bash
+echo '{"type":"delegate","targetGroup":"linkedin-agent","prompt":"Write a LinkedIn post about [topic]. Theme: [Monday Risk/Wednesday Ops/Friday Hot Take]. News context: [summary]","delegationId":"del-'$(date +%s)'-'$(head -c4 /dev/urandom | xxd -p)'"}' > /workspace/ipc/tasks/delegate_$(date +%s).json
+```
+
+The orchestrator runs the target agent and writes the result to `/workspace/ipc/input/delegation_<delegationId>.json`. Poll for the result:
+
+```bash
+# Wait for result (check every 5 seconds, up to 5 minutes)
+for i in $(seq 1 60); do
+  RESULT=$(ls /workspace/ipc/input/delegation_del-*.json 2>/dev/null | head -1)
+  if [ -n "$RESULT" ]; then
+    cat "$RESULT"
+    rm "$RESULT"
+    break
+  fi
+  sleep 5
+done
+```
+
+### Available Specialist Agents
+
+| Agent | Folder | Purpose |
+|-------|--------|---------|
+| LinkedIn Agent | `linkedin-agent` | Generate LinkedIn posts using AI Decisions context |
+
+### LinkedIn Post Workflow
+
+For LinkedIn posts (scheduled or on-demand):
+1. Run ai-news-monitor to get content (if needed)
+2. Delegate to `linkedin-agent` with topic, theme day, and news summary
+3. Read the result from IPC input
+4. Forward the draft to the user
+5. If user requests revision, re-delegate with original + feedback
+
+---
+
 ## Email (Gmail)
 
 You have access to Gmail via MCP tools:
