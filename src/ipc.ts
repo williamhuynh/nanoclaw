@@ -4,6 +4,7 @@ import path from 'path';
 import { CronExpressionParser } from 'cron-parser';
 
 import { DATA_DIR, IPC_POLL_INTERVAL, TIMEZONE } from './config.js';
+import { emitEvent } from './events.js';
 import { AvailableGroup } from './container-runner.js';
 import { createTask, deleteTask, getTaskById, updateTask } from './db.js';
 import { isValidGroupFolder, resolveGroupFolderPath } from './group-folder.js';
@@ -547,6 +548,13 @@ export async function processTaskIpc(
           { sourceGroup, targetFolder, delegationId },
           'Delegation started',
         );
+        emitEvent({
+          type: 'delegation_started',
+          sourceGroup,
+          targetGroup: targetFolder,
+          delegationId,
+          timestamp: new Date().toISOString(),
+        });
 
         // Fire-and-forget: don't block the IPC loop
         deps
@@ -573,6 +581,14 @@ export async function processTaskIpc(
               },
               'Delegation completed',
             );
+            emitEvent({
+              type: 'delegation_completed',
+              sourceGroup,
+              targetGroup: targetFolder,
+              delegationId,
+              status: result.status,
+              timestamp: new Date().toISOString(),
+            });
           })
           .catch((err) => {
             const inputDir = path.join(DATA_DIR, 'ipc', sourceGroup, 'input');
@@ -591,6 +607,14 @@ export async function processTaskIpc(
               { sourceGroup, targetFolder, delegationId, err },
               'Delegation failed',
             );
+            emitEvent({
+              type: 'delegation_completed',
+              sourceGroup,
+              targetGroup: targetFolder,
+              delegationId,
+              status: 'error',
+              timestamp: new Date().toISOString(),
+            });
           });
       }
       break;
