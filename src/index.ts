@@ -352,6 +352,27 @@ async function runAgent(
     new Set(Object.keys(registeredGroups)),
   );
 
+  // Write available agents snapshot so the delegate skill can discover specialists
+  if (isMain) {
+    const agents = Object.entries(registeredGroups)
+      .filter(([jid]) => jid.startsWith('worker:'))
+      .map(([jid, g]) => ({
+        folder: g.folder,
+        name: g.name,
+        jid,
+      }));
+    const agentsFile = path.join(
+      DATA_DIR,
+      'ipc',
+      group.folder,
+      'available_agents.json',
+    );
+    fs.writeFileSync(
+      agentsFile,
+      JSON.stringify({ agents, lastSync: new Date().toISOString() }, null, 2),
+    );
+  }
+
   // Wrap onOutput to track session ID from streamed results
   const wrappedOnOutput = onOutput
     ? async (output: ContainerOutput) => {

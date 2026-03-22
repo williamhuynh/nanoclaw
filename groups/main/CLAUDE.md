@@ -255,41 +255,25 @@ The task will run in that group's context with access to their files and memory.
 
 ## Delegation
 
-You can delegate work to specialist agents. Write a JSON file to your IPC tasks directory:
+You have specialist agents available. **Always use the `/delegate` skill for tasks that match a specialist's expertise** instead of doing the work yourself. Specialists have dedicated context and produce higher quality output for their domain.
 
-```bash
-echo '{"type":"delegate","targetGroup":"linkedin-agent","prompt":"Write a LinkedIn post about [topic]. Theme: [Monday Risk/Wednesday Ops/Friday Hot Take]. News context: [summary]","delegationId":"del-'$(date +%s)'-'$(head -c4 /dev/urandom | xxd -p)'"}' > /workspace/ipc/tasks/delegate_$(date +%s).json
-```
+Check `/workspace/ipc/available_agents.json` to see which specialists are registered.
 
-The orchestrator runs the target agent and writes the result to `/workspace/ipc/input/delegation_<delegationId>.json`. Poll for the result:
+**Current specialists:**
 
-```bash
-# Wait for result (check every 5 seconds, up to 5 minutes)
-for i in $(seq 1 60); do
-  RESULT=$(ls /workspace/ipc/input/delegation_del-*.json 2>/dev/null | head -1)
-  if [ -n "$RESULT" ]; then
-    cat "$RESULT"
-    rm "$RESULT"
-    break
-  fi
-  sleep 5
-done
-```
-
-### Available Specialist Agents
-
-| Agent | Folder | Purpose |
+| Agent | Folder | Use for |
 |-------|--------|---------|
-| LinkedIn Agent | `linkedin-agent` | Generate LinkedIn posts using AI Decisions context |
+| LinkedIn Agent | `linkedin-agent` | LinkedIn posts, social media content, thought leadership drafts |
 
-### LinkedIn Post Workflow
+### LinkedIn Posts
 
-For LinkedIn posts (scheduled or on-demand):
-1. Run ai-news-monitor to get content (if needed)
-2. Delegate to `linkedin-agent` with topic, theme day, and news summary
-3. Read the result from IPC input
-4. Forward the draft to the user
-5. If user requests revision, re-delegate with original + feedback
+**ALWAYS delegate LinkedIn posts to the linkedin-agent.** Do not write posts yourself.
+
+1. Run ai-news-monitor to get content (if needed for scheduled posts)
+2. Use the `/delegate` skill with target `linkedin-agent`
+3. Include in the prompt: topic, theme day (Monday Risk/Wednesday Ops/Friday Hot Take), and any news context
+4. Forward the returned draft to the user
+5. If the user wants revisions, re-delegate with the original draft + their feedback
 
 ---
 
