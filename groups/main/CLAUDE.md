@@ -255,25 +255,11 @@ The task will run in that group's context with access to their files and memory.
 
 ## Delegation
 
-You have specialist agents available. **Always use the `/delegate` skill for tasks that match a specialist's expertise** instead of doing the work yourself. Specialists have dedicated context and produce higher quality output for their domain.
+**Before doing any task yourself, check `/workspace/ipc/available_agents.json` for specialist agents that can handle it.** Always prefer delegating to a specialist over doing the work directly — specialists have dedicated context and expertise that produces higher quality output.
 
-Check `/workspace/ipc/available_agents.json` to see which specialists are registered.
+If a specialist is available for the task, use the `/delegate` skill to delegate to them. If no specialist matches, do the work yourself.
 
-**Current specialists:**
-
-| Agent | Folder | Use for |
-|-------|--------|---------|
-| LinkedIn Agent | `linkedin-agent` | LinkedIn posts, social media content, thought leadership drafts |
-
-### LinkedIn Posts
-
-**ALWAYS delegate LinkedIn posts to the linkedin-agent.** Do not write posts yourself.
-
-1. Run ai-news-monitor to get content (if needed for scheduled posts)
-2. Use the `/delegate` skill with target `linkedin-agent`
-3. Include in the prompt: topic, theme day (Monday Risk/Wednesday Ops/Friday Hot Take), and any news context
-4. Forward the returned draft to the user
-5. If the user wants revisions, re-delegate with the original draft + their feedback
+When delegating, include everything the specialist needs in the prompt — they have no access to your conversation history.
 
 ---
 
