@@ -27,6 +27,7 @@ import {
   stopContainer,
 } from './container-runtime.js';
 import { detectAuthMode } from './credential-proxy.js';
+import { emitEvent } from './events.js';
 import { validateAdditionalMounts } from './mount-security.js';
 import { RegisteredGroup } from './types.js';
 
@@ -368,6 +369,15 @@ export async function runContainerAgent(
 
     onProcess(container, containerName);
 
+    emitEvent({
+      type: 'container_started',
+      groupFolder: group.folder,
+      groupName: group.name,
+      containerName,
+      isMain: input.isMain,
+      timestamp: new Date().toISOString(),
+    });
+
     let stdout = '';
     let stderr = '';
     let stdoutTruncated = false;
@@ -490,6 +500,17 @@ export async function runContainerAgent(
     container.on('close', (code) => {
       clearTimeout(timeout);
       const duration = Date.now() - startTime;
+
+      emitEvent({
+        type: 'container_completed',
+        groupFolder: group.folder,
+        groupName: group.name,
+        containerName,
+        duration,
+        exitCode: code,
+        timedOut,
+        timestamp: new Date().toISOString(),
+      });
 
       if (timedOut) {
         const ts = new Date().toISOString().replace(/[:.]/g, '-');
