@@ -241,6 +241,16 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         if (text) {
           await channel.sendMessage(chatJid, text);
           outputSentToUser = true;
+          emitEvent({
+            type: 'message_stored',
+            chatJid,
+            sender: 'assistant',
+            senderName: group.name,
+            content: text.slice(0, 200),
+            timestamp: new Date().toISOString(),
+            groupFolder: group.folder,
+            isFromMe: true,
+          });
         }
         // Only reset idle timer on actual results, not session-update markers (result: null)
         resetIdleTimer();

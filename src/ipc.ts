@@ -553,6 +553,7 @@ export async function processTaskIpc(
           sourceGroup,
           targetGroup: targetFolder,
           delegationId,
+          prompt: prompt.slice(0, 300),
           timestamp: new Date().toISOString(),
         });
 
@@ -587,6 +588,7 @@ export async function processTaskIpc(
               targetGroup: targetFolder,
               delegationId,
               status: result.status,
+              result: result.result?.slice(0, 300),
               timestamp: new Date().toISOString(),
             });
           })
@@ -613,6 +615,7 @@ export async function processTaskIpc(
               targetGroup: targetFolder,
               delegationId,
               status: 'error',
+              error: err instanceof Error ? err.message : String(err),
               timestamp: new Date().toISOString(),
             });
           });
