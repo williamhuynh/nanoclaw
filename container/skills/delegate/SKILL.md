@@ -40,7 +40,7 @@ DELEOF
 ### 4. Poll for result
 
 ```bash
-TIMEOUT=180; ELAPSED=0
+TIMEOUT=600; ELAPSED=0
 RESULT="/workspace/ipc/input/delegation_${DELEGATION_ID}.json"
 while [ $ELAPSED -lt $TIMEOUT ]; do
   if [ -f "$RESULT" ]; then
@@ -51,7 +51,7 @@ while [ $ELAPSED -lt $TIMEOUT ]; do
   sleep 3
   ELAPSED=$((ELAPSED + 3))
 done
-echo '{"status":"error","error":"Delegation timed out after 3 minutes"}'
+echo '{"status":"error","error":"Delegation timed out after 10 minutes"}'
 ```
 
 **IMPORTANT:** Run steps 3 and 4 as a single bash command (write the file, then immediately poll). Do NOT run them as separate tool calls — the delegation starts as soon as the file is written, and separating them adds delay.
