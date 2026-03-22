@@ -26,7 +26,7 @@ If no agent matches the task, skip delegation and do it yourself.
 ### 3. Write delegation request
 
 ```bash
-DELEGATION_ID="del-$(date +%s)-$(head -c4 /dev/urandom | xxd -p)"
+DELEGATION_ID="del-$(date +%s)-$(cat /proc/sys/kernel/random/uuid | cut -c1-8)"
 cat > /workspace/ipc/tasks/delegate_$(date +%s%N).json <<DELEOF
 {
   "type": "delegate",
@@ -40,14 +40,21 @@ DELEOF
 ### 4. Poll for result
 
 ```bash
-TIMEOUT=300; ELAPSED=0
+TIMEOUT=180; ELAPSED=0
+RESULT="/workspace/ipc/input/delegation_${DELEGATION_ID}.json"
 while [ $ELAPSED -lt $TIMEOUT ]; do
-  RESULT="/workspace/ipc/input/delegation_${DELEGATION_ID}.json"
-  if [ -f "$RESULT" ]; then cat "$RESULT"; rm "$RESULT"; break; fi
-  sleep 5; ELAPSED=$((ELAPSED + 5))
+  if [ -f "$RESULT" ]; then
+    cat "$RESULT"
+    rm "$RESULT"
+    exit 0
+  fi
+  sleep 3
+  ELAPSED=$((ELAPSED + 3))
 done
-[ $ELAPSED -ge $TIMEOUT ] && echo '{"status":"error","error":"Delegation timed out"}'
+echo '{"status":"error","error":"Delegation timed out after 3 minutes"}'
 ```
+
+**IMPORTANT:** Run steps 3 and 4 as a single bash command (write the file, then immediately poll). Do NOT run them as separate tool calls — the delegation starts as soon as the file is written, and separating them adds delay.
 
 ### 5. Handle result
 
