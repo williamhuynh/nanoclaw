@@ -364,6 +364,76 @@ server.tool(
   },
 );
 
+server.tool(
+  'delegate',
+  `Delegate a task to a specialist agent. The specialist runs in its own container with dedicated context and expertise, then returns the result. Use this when a specialist agent is available for the task — check /workspace/ipc/available_agents.json for registered specialists.
+
+The specialist has NO access to your conversation history. Include everything they need in the prompt: topic, context, constraints, and any prior feedback.
+
+This tool blocks until the specialist completes (up to 10 minutes). The result is returned directly.`,
+  {
+    target_group: z.string().describe('The folder name of the target specialist agent (e.g., "linkedin-agent")'),
+    prompt: z.string().describe('The full prompt for the specialist — include all context they need'),
+  },
+  async (args) => {
+    if (!isMain) {
+      return {
+        content: [{ type: 'text' as const, text: 'Only the main group can delegate to other agents.' }],
+        isError: true,
+      };
+    }
+
+    const delegationId = `del-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    // Write delegation request to IPC tasks
+    writeIpcFile(TASKS_DIR, {
+      type: 'delegate',
+      targetGroup: args.target_group,
+      prompt: args.prompt,
+      delegationId,
+    });
+
+    // Poll for result in IPC input directory
+    const INPUT_DIR = path.join(IPC_DIR, 'input');
+    const resultFile = path.join(INPUT_DIR, `delegation_${delegationId}.json`);
+    const POLL_MS = 500;
+    const TIMEOUT_MS = 600_000; // 10 minutes
+    const start = Date.now();
+
+    while (Date.now() - start < TIMEOUT_MS) {
+      if (fs.existsSync(resultFile)) {
+        try {
+          const raw = fs.readFileSync(resultFile, 'utf-8');
+          fs.unlinkSync(resultFile);
+          const result = JSON.parse(raw);
+
+          if (result.status === 'success' && result.result) {
+            return {
+              content: [{ type: 'text' as const, text: result.result }],
+            };
+          } else {
+            return {
+              content: [{ type: 'text' as const, text: `Delegation failed: ${result.error || 'No result returned'}` }],
+              isError: true,
+            };
+          }
+        } catch (err) {
+          return {
+            content: [{ type: 'text' as const, text: `Error reading delegation result: ${err instanceof Error ? err.message : String(err)}` }],
+            isError: true,
+          };
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+    }
+
+    return {
+      content: [{ type: 'text' as const, text: `Delegation to "${args.target_group}" timed out after 10 minutes.` }],
+      isError: true,
+    };
+  },
+);
+
 // Start the stdio transport
 const transport = new StdioServerTransport();
 await server.connect(transport);

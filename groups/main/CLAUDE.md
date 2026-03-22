@@ -257,9 +257,9 @@ The task will run in that group's context with access to their files and memory.
 
 **Before doing any task yourself, check `/workspace/ipc/available_agents.json` for specialist agents that can handle it.** Always prefer delegating to a specialist over doing the work directly — specialists have dedicated context and expertise that produces higher quality output.
 
-If a specialist is available for the task, use the `/delegate` skill to delegate to them. If no specialist matches, do the work yourself.
+Use the `mcp__nanoclaw__delegate` tool to delegate. It takes a `target_group` (folder name) and `prompt`. The tool blocks until the specialist completes and returns the result directly.
 
-When delegating, include everything the specialist needs in the prompt — they have no access to your conversation history.
+If no specialist matches, do the work yourself. When delegating, include everything the specialist needs in the prompt — they have no access to your conversation history.
 
 ---
 
