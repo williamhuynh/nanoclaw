@@ -65,6 +65,7 @@ import {
 } from './sender-allowlist.js';
 import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
+import { emitEvent } from './events.js';
 import { logger } from './logger.js';
 import {
   searchNewEmails,
@@ -770,6 +771,16 @@ async function main(): Promise<void> {
         }
       }
       storeMessage(msg);
+      emitEvent({
+        type: 'message_stored',
+        chatJid,
+        sender: msg.sender,
+        senderName: msg.sender_name,
+        content: msg.content.slice(0, 200),
+        timestamp: msg.timestamp,
+        groupFolder: registeredGroups[chatJid]?.folder,
+        isFromMe: msg.is_from_me || false,
+      });
     },
     onChatMetadata: (
       chatJid: string,
