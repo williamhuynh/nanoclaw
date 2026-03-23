@@ -1,52 +1,25 @@
 ---
 name: ai-news-monitor
-description: Monitor and summarize notable AI news from X (Twitter) using xAI's Grok API with x_search. Use when user asks for AI news digest, X AI updates, daily AI summary, or to check what's happening in AI on Twitter.
+description: Generate and email a curated AI news digest. Use when user asks for AI news digest, daily AI summary, or to compile and send an AI newsletter. This skill searches X, formats an HTML email, and sends it.
 ---
 
 # AI News Monitor
 
-Searches X (Twitter) for notable AI news from the last 24 hours using xAI's Grok API with x_search tool, then emails a curated summary.
+Compile a curated AI news digest from X (Twitter) and email it as a formatted HTML newsletter.
 
 ## Workflow
 
-### 1. Call xAI Grok API with x_search (Responses API)
+### 1. Search X for AI news
 
-**IMPORTANT:** Use the `/v1/responses` endpoint (NOT `/v1/chat/completions`) to enable x_search.
+Use the `/x-search` skill to search for AI news from the last 24 hours. Craft a search prompt like:
 
-```bash
-curl -s -X POST https://api.x.ai/v1/responses \
-  -H "Authorization: Bearer $(cat /workspace/group/secrets/xai_api_key.txt)" \
-  -H "Content-Type: application/json" \
-  -d @- <<'EOF'
-{
-  "model": "grok-4-1-fast-reasoning",
-  "input": [
-    {
-      "role": "user",
-      "content": "Search X for the most notable AI and machine learning news from the last 24 hours (DATES). Focus on:\n- Model releases (GPT, Claude, Gemini, Llama, etc.)\n- Research breakthroughs and papers\n- Company announcements from AI labs\n- Notable tool launches and applications\n- Significant discussions from AI researchers\n\nPay special attention to posts from: @danshipper @elonmusk @sama @emollick @anthropicai @jason @karpathy @bcherny\n\nProvide structured summary with:\n- Categories: Model Releases, Research, Company News, Tools, Discussions\n- Brief summary of each item\n- Post URLs\n- Why each is significant\n- Engagement metrics if notable"
-    }
-  ],
-  "tools": [
-    {
-      "type": "x_search",
-      "from_date": "YYYY-MM-DD",
-      "to_date": "YYYY-MM-DD"
-    }
-  ]
-}
-EOF
-```
+> Search X for the most notable AI and machine learning news from the last 24 hours. Focus on model releases, research breakthroughs, company announcements, tool launches, and researcher discussions. Pay special attention to posts from: @danshipper @elonmusk @sama @emollick @anthropicai @jason @karpathy @bcherny. Provide structured summary with categories, brief summaries, post URLs, significance, and engagement metrics.
 
-**Replace:**
-- `DATES` in content with actual date range (e.g., "Feb 22-23, 2026")
-- `YYYY-MM-DD` with ISO dates (yesterday and today)
+### 2. Parse the search results
 
-### 2. Parse Grok's Response
-
-Extract the text content from the response JSON:
-- Response is at `output[].content[].text`
-- Citations/URLs are in `output[].content[].annotations[]`
-- The response will include actual X posts found via x_search
+Extract from the x-search response:
+- Categorize into: Model Releases, Research, Company News, Tools, Discussions
+- Keep post URLs and engagement metrics
 
 ### 3. Generate HTML Email
 
@@ -113,11 +86,8 @@ The `attachments` parameter accepts a list of file paths. The Gmail MCP will rea
 
 ## Configuration
 
-- **API Key:** `/workspace/group/secrets/xai_api_key.txt`
-- **Model:** `grok-4-1-fast-reasoning` (with x_search enabled)
-- **Endpoint:** `https://api.x.ai/v1/responses` (NOT chat/completions)
-- **Time Range:** Last 24 hours
 - **Recipients:** william.huynh12@gmail.com, will@theoc.ai
+- **X Search:** Uses the `/x-search` skill (see that skill for API config)
 
 ## Running
 
@@ -131,7 +101,5 @@ Can be scheduled to run automatically at 8am Sydney time daily.
 
 ## Important Notes
 
-- Always use `/v1/responses` endpoint for tool calling
-- The x_search tool makes multiple searches (semantic + keyword)
-- Grok will include real X post URLs in the response
-- Check `num_server_side_tools_used` in usage stats to verify searches ran
+- Use the `/x-search` skill for the X search step — do not call the Grok API directly
+- This skill is for compiling and emailing the digest — not for general X research
