@@ -61,6 +61,8 @@ export const CREDENTIAL_PROXY_PORT = parseInt(
   process.env.CREDENTIAL_PROXY_PORT || '3001',
   10,
 );
+export const API_PORT = parseInt(process.env.NANOCLAW_API_PORT || '3004', 10);
+export const API_HOST = process.env.NANOCLAW_API_HOST || '0.0.0.0';
 export const IPC_POLL_INTERVAL = 1000;
 export const IDLE_TIMEOUT = parseInt(process.env.IDLE_TIMEOUT || '1800000', 10); // 30min default — how long to keep container alive after last result
 export const MAX_CONCURRENT_CONTAINERS = Math.max(

@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 
 import {
+  API_HOST,
+  API_PORT,
   ASSISTANT_NAME,
   CREDENTIAL_PROXY_PORT,
   DATA_DIR,
@@ -12,6 +14,7 @@ import {
   TIMEZONE,
   TRIGGER_PATTERN,
 } from './config.js';
+import { startApiServer } from './api.js';
 import { startCredentialProxy } from './credential-proxy.js';
 import './channels/index.js';
 import {
@@ -698,10 +701,14 @@ async function main(): Promise<void> {
     PROXY_BIND_HOST,
   );
 
+  // Start external API server
+  const apiServer = await startApiServer(API_PORT, API_HOST);
+
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received');
     proxyServer.close();
+    apiServer.close();
     await queue.shutdown(10000);
     await stopGmailClient();
     for (const ch of channels) await ch.disconnect();
