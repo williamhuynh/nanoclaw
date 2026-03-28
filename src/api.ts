@@ -69,7 +69,10 @@ function json(res: ServerResponse, status: number, body: unknown): void {
   res.end(payload);
 }
 
-function parseUrl(url: string): { path: string; query: Record<string, string> } {
+function parseUrl(url: string): {
+  path: string;
+  query: Record<string, string>;
+} {
   const qIdx = url.indexOf('?');
   const pathname = qIdx >= 0 ? url.slice(0, qIdx) : url;
   const query: Record<string, string> = {};
@@ -326,10 +329,7 @@ async function handlePatchTask(
 // Router
 // ---------------------------------------------------------------------------
 
-async function route(
-  req: IncomingMessage,
-  res: ServerResponse,
-): Promise<void> {
+async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const { path: urlPath, query } = parseUrl(req.url || '/');
   const method = req.method || 'GET';
 
@@ -430,10 +430,7 @@ export function startApiServer(port: number, host: string): Promise<Server> {
 
     server.listen(port, host, () => {
       const apiKey = getApiKey();
-      logger.info(
-        { port, host, hasApiKey: !!apiKey },
-        'API server started',
-      );
+      logger.info({ port, host, hasApiKey: !!apiKey }, 'API server started');
       if (!apiKey) {
         logger.warn(
           'NANOCLAW_API_KEY not set — all API requests will be rejected. Add it to .env',

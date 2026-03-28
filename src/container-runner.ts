@@ -158,6 +158,16 @@ function buildVolumeMounts(
     });
   }
 
+  // SSH keys (read-only) — enables git push from containers (e.g. ToME auto-sync)
+  const sshDir = path.join(process.env.HOME || '/root', '.ssh');
+  if (fs.existsSync(sshDir)) {
+    mounts.push({
+      hostPath: sshDir,
+      containerPath: '/home/node/.ssh',
+      readonly: true,
+    });
+  }
+
   // Per-group Claude sessions directory (isolated from other groups)
   // Each group gets their own .claude/ to prevent cross-group session access
   const groupSessionsDir = path.join(
@@ -293,6 +303,12 @@ function buildContainerArgs(
   } else {
     args.push('-e', 'CLAUDE_CODE_OAUTH_TOKEN=placeholder');
   }
+
+  // Git author identity for commits made inside containers
+  args.push('-e', 'GIT_AUTHOR_NAME=NanoClaw');
+  args.push('-e', 'GIT_AUTHOR_EMAIL=nanoclaw@users.noreply.github.com');
+  args.push('-e', 'GIT_COMMITTER_NAME=NanoClaw');
+  args.push('-e', 'GIT_COMMITTER_EMAIL=nanoclaw@users.noreply.github.com');
 
   // Runtime-specific args for host gateway resolution
   args.push(...hostGatewayArgs());

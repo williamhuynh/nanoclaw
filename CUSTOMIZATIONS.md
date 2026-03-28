@@ -99,3 +99,15 @@ Each entry: **what** was changed, **why**, and **which files** were modified.
 - `src/api.ts`: New file — HTTP server with endpoints for status, groups, chats, tasks CRUD, messages, send message, and delegation.
 - `src/config.ts`: Added `API_PORT` (default 3004) and `API_HOST` (default 0.0.0.0).
 - `src/index.ts`: Starts API server on boot, includes in graceful shutdown.
+
+---
+
+## SSH keys and git config in containers (2026-03-28)
+
+**Purpose:** Enable containers to `git commit && git push` via SSH. Used by ToME auto-sync (tome-observe skill commits and pushes after each observation).
+
+**Changes:**
+
+- `src/container-runner.ts`: Mounts `~/.ssh` read-only at `/home/node/.ssh` in `buildVolumeMounts`. Sets `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, `GIT_COMMITTER_EMAIL` env vars in `buildContainerArgs`.
+
+**Security notes:** SSH keys are read-only. This bypasses the mount-security.ts blocklist (which only applies to user-configured `additionalMounts`, not hardcoded mounts). All containers get SSH access — scope down to specific groups if needed later.

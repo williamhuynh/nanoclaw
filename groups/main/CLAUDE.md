@@ -263,6 +263,13 @@ If no specialist matches, then do the work yourself. When delegating, include ev
 
 ---
 
+## ToME
+
+ToME data is at `/workspace/global/tome/`.
+Always run `/init-tome` at the start of every session.
+
+---
+
 ## Email (Gmail)
 
 You have access to Gmail via MCP tools:
