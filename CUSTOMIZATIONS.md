@@ -120,8 +120,9 @@ Each entry: **what** was changed, **why**, and **which files** were modified.
 
 **Changes:**
 
-- `container/agent-runner/src/ipc-mcp-stdio.ts`: Added `mcFetch` HTTP helper, `mcToolCall` response wrapper, and 6 MCP tools (todo_list, todo_get, todo_create, todo_update, subtask_create, subtask_update). Calls Mission Control REST API at `host.docker.internal:3002`.
-- `src/api.ts`: Added `/api/todos/*` proxy that forwards authenticated requests from port 3004 to Mission Control port 3002.
+- `container/agent-runner/src/ipc-mcp-stdio.ts`: Added `mcFetch` HTTP helper (routes through credential proxy port 3001), `mcToolCall` response wrapper, and 6 MCP tools (todo_list, todo_get, todo_create, todo_update, subtask_create, subtask_update).
+- `src/credential-proxy.ts`: Added `/api/todos/*` proxy that forwards to Mission Control on localhost:3002. Required because containers can only reach host port 3001 on this VPS.
+- `src/api.ts`: Added `/api/todos/*` proxy that forwards authenticated requests from port 3004 to Mission Control port 3002 (for external access via Cloudflare).
 - `container/skills/todo-brain-dump/SKILL.md`: New skill — instructs agents to parse natural language brain dumps into structured todos via MCP tools.
 
 ---
