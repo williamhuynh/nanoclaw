@@ -23,6 +23,7 @@ import {
   getAllRegisteredGroups,
   getAllTasks,
   getMessagesSince,
+  storeMessage,
   getTaskById,
 } from './db.js';
 import { isValidGroupFolder } from './group-folder.js';
@@ -331,6 +332,42 @@ async function handlePatchTask(
   json(res, 202, { ok: true, taskId });
 }
 
+async function handlePostInject(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
+  const body = JSON.parse(await readBody(req));
+  const { chatJid, text, senderName } = body as {
+    chatJid?: string;
+    text?: string;
+    senderName?: string;
+  };
+  if (!chatJid || !text) {
+    json(res, 400, { error: 'chatJid and text are required' });
+    return;
+  }
+
+  const groups = getAllRegisteredGroups();
+  if (!groups[chatJid]) {
+    json(res, 404, { error: 'Group not found for JID' });
+    return;
+  }
+
+  const msgId = `inject-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  storeMessage({
+    id: msgId,
+    chat_jid: chatJid,
+    sender: senderName || 'system',
+    sender_name: senderName || 'System',
+    content: text,
+    timestamp: new Date().toISOString(),
+    is_from_me: false,
+    is_bot_message: false,
+  });
+
+  json(res, 202, { ok: true, messageId: msgId });
+}
+
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
@@ -419,6 +456,12 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   // POST /api/message
   if (method === 'POST' && urlPath === '/api/message') {
     await handlePostMessage(req, res);
+    return;
+  }
+
+  // POST /api/inject — store a synthetic inbound message to trigger an agent
+  if (method === 'POST' && urlPath === '/api/inject') {
+    await handlePostInject(req, res);
     return;
   }
 
