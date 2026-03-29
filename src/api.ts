@@ -5,7 +5,13 @@
  * SQLite database.  Authentication is via Bearer token (NANOCLAW_API_KEY).
  * Designed to be consumed by external AI agents, dashboards, or scripts.
  */
-import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
+import {
+  createServer,
+  IncomingMessage,
+  request as httpRequest,
+  Server,
+  ServerResponse,
+} from 'http';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -345,9 +351,21 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     return;
   }
 
+  // Public root — unauthenticated health check
+  if (method === 'GET' && (urlPath === '/' || urlPath === '')) {
+    json(res, 200, {
+      name: 'NanoClaw API',
+      status: 'online',
+      auth: 'Bearer token required for /api/* endpoints',
+    });
+    return;
+  }
+
   // Auth check
   if (!authenticate(req)) {
-    json(res, 401, { error: 'Unauthorized' });
+    json(res, 401, {
+      error: 'Unauthorized — pass Authorization: Bearer <key>',
+    });
     return;
   }
 
@@ -407,6 +425,45 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   // POST /api/delegate
   if (method === 'POST' && urlPath === '/api/delegate') {
     await handlePostDelegate(req, res);
+    return;
+  }
+
+  // Proxy /api/todos/* to Mission Control (port 3002)
+  if (urlPath.startsWith('/api/todos')) {
+    const mcPath = `${urlPath}${req.url?.includes('?') ? '?' + req.url.split('?')[1] : ''}`;
+    const bodyText =
+      method === 'POST' || method === 'PUT' || method === 'PATCH'
+        ? await readBody(req)
+        : undefined;
+    const proxyReq = httpRequest(
+      {
+        hostname: 'localhost',
+        port: 3002,
+        path: mcPath,
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(bodyText
+            ? { 'Content-Length': Buffer.byteLength(bodyText) }
+            : {}),
+        },
+      },
+      (mcRes) => {
+        const chunks: Buffer[] = [];
+        mcRes.on('data', (c) => chunks.push(c));
+        mcRes.on('end', () => {
+          res.writeHead(mcRes.statusCode!, {
+            'Content-Type': 'application/json',
+          });
+          res.end(Buffer.concat(chunks));
+        });
+      },
+    );
+    proxyReq.on('error', () =>
+      json(res, 502, { error: 'Mission Control unavailable' }),
+    );
+    if (bodyText) proxyReq.write(bodyText);
+    proxyReq.end();
     return;
   }
 
