@@ -9,7 +9,49 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import fs from 'fs';
 import path from 'path';
+import http from 'http';
 import { CronExpressionParser } from 'cron-parser';
+
+// Mission Control HTTP helper — containers reach the host via Docker's host gateway
+const MC_HOST = 'host.docker.internal';
+const MC_PORT = 3002;
+
+function mcFetch(
+  method: string,
+  reqPath: string,
+  body?: Record<string, unknown>,
+): Promise<{ status: number; data: unknown }> {
+  return new Promise((resolve, reject) => {
+    const payload = body ? JSON.stringify(body) : undefined;
+    const req = http.request(
+      {
+        hostname: MC_HOST,
+        port: MC_PORT,
+        path: reqPath,
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {}),
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString();
+          try {
+            resolve({ status: res.statusCode!, data: JSON.parse(text) });
+          } catch {
+            resolve({ status: res.statusCode!, data: text });
+          }
+        });
+      },
+    );
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
 
 const IPC_DIR = '/workspace/ipc';
 const MESSAGES_DIR = path.join(IPC_DIR, 'messages');
@@ -431,6 +473,156 @@ This tool blocks until the specialist completes (up to 10 minutes). The result i
       content: [{ type: 'text' as const, text: `Delegation to "${args.target_group}" timed out after 10 minutes.` }],
       isError: true,
     };
+  },
+);
+
+// --- Todo MCP Tools ---
+
+server.tool(
+  'todo_list',
+  'List todos. Optionally filter by status, owner, horizon, or context.',
+  {
+    status: z.string().optional().describe('Filter: pending, in_progress, awaiting_review, completed, cancelled'),
+    owner: z.string().optional().describe('Filter by owner: "human" or agent folder name'),
+    horizon: z.string().optional().describe('Filter: today, this_week, soon, none'),
+    context: z.string().optional().describe('Filter: work, personal, admin'),
+  },
+  async (args) => {
+    try {
+      const params = new URLSearchParams();
+      if (args.status) params.set('status', args.status);
+      if (args.owner) params.set('owner', args.owner);
+      if (args.horizon) params.set('horizon', args.horizon);
+      if (args.context) params.set('context', args.context);
+      const qs = params.toString();
+      const { data } = await mcFetch('GET', `/api/todos${qs ? '?' + qs : ''}`);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text' as const, text: `Error listing todos: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+    }
+  },
+);
+
+server.tool(
+  'todo_get',
+  'Get a single todo by ID, including its subtasks.',
+  {
+    id: z.string().describe('The todo ID'),
+  },
+  async (args) => {
+    try {
+      const { data } = await mcFetch('GET', `/api/todos`);
+      const todos = data as Array<{ id: string }>;
+      const todo = todos.find((t) => t.id === args.id);
+      if (!todo) return { content: [{ type: 'text' as const, text: 'Todo not found' }], isError: true };
+      return { content: [{ type: 'text' as const, text: JSON.stringify(todo, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text' as const, text: `Error getting todo: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+    }
+  },
+);
+
+server.tool(
+  'todo_create',
+  'Create a new todo item.',
+  {
+    title: z.string().describe('Todo title'),
+    description: z.string().optional().describe('Detailed description'),
+    horizon: z.enum(['today', 'this_week', 'soon', 'none']).optional().describe('Time horizon'),
+    owner: z.string().optional().describe('"human" or agent folder name'),
+    context: z.enum(['work', 'personal', 'admin']).optional().describe('Category'),
+    source: z.enum(['manual', 'brain_dump', 'agent', 'meeting', 'channel']).optional(),
+    source_ref: z.string().optional().describe('Reference ID (meeting ID, message ID, etc.)'),
+  },
+  async (args) => {
+    try {
+      const { data, status } = await mcFetch('POST', '/api/todos', {
+        title: args.title,
+        description: args.description,
+        horizon: args.horizon || 'none',
+        owner: args.owner || 'human',
+        context: args.context || 'work',
+        source: args.source || 'agent',
+        source_ref: args.source_ref,
+      });
+      if (status >= 400) return { content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }], isError: true };
+      return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text' as const, text: `Error creating todo: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+    }
+  },
+);
+
+server.tool(
+  'todo_update',
+  'Update a todo. Use to change status, owner, horizon, or add result_content.',
+  {
+    id: z.string().describe('The todo ID'),
+    status: z.enum(['pending', 'in_progress', 'awaiting_review', 'completed', 'cancelled']).optional(),
+    horizon: z.enum(['today', 'this_week', 'soon', 'none']).optional(),
+    owner: z.string().optional().describe('"human" or agent folder name'),
+    result_content: z.string().optional().describe('Agent output for review (markdown)'),
+    description: z.string().optional(),
+    context: z.enum(['work', 'personal', 'admin']).optional(),
+  },
+  async (args) => {
+    try {
+      const { id, ...updates } = args;
+      const body: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(updates)) {
+        if (v !== undefined) body[k] = v;
+      }
+      const { data, status } = await mcFetch('PUT', `/api/todos/${id}`, body);
+      if (status >= 400) return { content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }], isError: true };
+      return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text' as const, text: `Error updating todo: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+    }
+  },
+);
+
+server.tool(
+  'subtask_create',
+  'Add a subtask to a todo.',
+  {
+    todo_id: z.string().describe('Parent todo ID'),
+    title: z.string().describe('Subtask title'),
+    owner: z.string().optional().describe('"human" or agent folder name'),
+  },
+  async (args) => {
+    try {
+      const { data, status } = await mcFetch('POST', `/api/todos/${args.todo_id}/subtasks`, {
+        title: args.title,
+        owner: args.owner || 'human',
+      });
+      if (status >= 400) return { content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }], isError: true };
+      return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text' as const, text: `Error creating subtask: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+    }
+  },
+);
+
+server.tool(
+  'subtask_update',
+  'Update a subtask status or title.',
+  {
+    todo_id: z.string().describe('Parent todo ID'),
+    subtask_id: z.string().describe('Subtask ID'),
+    status: z.enum(['pending', 'in_progress', 'completed', 'blocked']).optional(),
+    title: z.string().optional(),
+  },
+  async (args) => {
+    try {
+      const body: Record<string, unknown> = {};
+      if (args.status) body.status = args.status;
+      if (args.title) body.title = args.title;
+      const { data, status } = await mcFetch('PUT', `/api/todos/${args.todo_id}/subtasks/${args.subtask_id}`, body);
+      if (status >= 400) return { content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }], isError: true };
+      return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text' as const, text: `Error updating subtask: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+    }
   },
 );
 
