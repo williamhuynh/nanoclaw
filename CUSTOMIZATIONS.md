@@ -111,3 +111,26 @@ Each entry: **what** was changed, **why**, and **which files** were modified.
 - `src/container-runner.ts`: Mounts `~/.ssh` read-only at `/home/node/.ssh` in `buildVolumeMounts`. Sets `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, `GIT_COMMITTER_EMAIL` env vars in `buildContainerArgs`.
 
 **Security notes:** SSH keys are read-only. This bypasses the mount-security.ts blocklist (which only applies to user-configured `additionalMounts`, not hardcoded mounts). All containers get SSH access — scope down to specific groups if needed later.
+
+---
+
+## MCP todo tools for container agents (2026-03-29)
+
+**Purpose:** Agents can create, list, update, and manage todos in Mission Control via MCP tools. Also proxies todo API through NanoClaw's external API (port 3004).
+
+**Changes:**
+
+- `container/agent-runner/src/ipc-mcp-stdio.ts`: Added `mcFetch` HTTP helper, `mcToolCall` response wrapper, and 6 MCP tools (todo_list, todo_get, todo_create, todo_update, subtask_create, subtask_update). Calls Mission Control REST API at `host.docker.internal:3002`.
+- `src/api.ts`: Added `/api/todos/*` proxy that forwards authenticated requests from port 3004 to Mission Control port 3002.
+- `container/skills/todo-brain-dump/SKILL.md`: New skill — instructs agents to parse natural language brain dumps into structured todos via MCP tools.
+
+---
+
+## Safety hooks for destructive operations (2026-03-29)
+
+**Purpose:** Prevent accidental destructive operations by asking for approval before executing them.
+
+**Changes:**
+
+- `.claude/hooks/safety-check.sh`: PreToolUse hook script that detects DROP TABLE, TRUNCATE, DELETE without WHERE, ALTER DROP COLUMN, rm -rf, git reset --hard, git clean -f, git push --force, and .env/credential file modifications. Returns `permissionDecision: "ask"` to prompt for approval.
+- `.claude/settings.json`: Registers the hook on Write, Edit, and Bash tools.
