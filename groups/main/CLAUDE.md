@@ -73,11 +73,29 @@ Main has read-only access to the project and read-write access to its group fold
 |----------------|-----------|--------|
 | `/workspace/project` | Project root | read-only |
 | `/workspace/group` | `groups/main/` | read-write |
+| `/workspace/global/tome` | ToME mental model | read-write |
+| `/workspace/mission-control` | Mission Control app | read-write |
 
 Key paths inside the container:
 - `/workspace/project/store/messages.db` - SQLite database
 - `/workspace/project/store/messages.db` (registered_groups table) - Group config
 - `/workspace/project/groups/` - All group folders
+
+### Mission Control
+
+The Mission Control app source is at `/workspace/mission-control/` (read-write). This is a React 19 + Express 5 + Tailwind CSS 4 + TypeScript app.
+
+Key paths:
+- Frontend pages: `/workspace/mission-control/src/frontend/pages/`
+- Components: `/workspace/mission-control/src/frontend/components/`
+- Server routes: `/workspace/mission-control/src/server/routes/`
+- Database: `/workspace/mission-control/src/server/db.ts`
+
+After making changes, deploy with:
+```bash
+touch /workspace/mission-control/.deploy-trigger
+```
+This triggers a rebuild and restart via systemd.
 
 ---
 
