@@ -12,9 +12,11 @@ import path from 'path';
 import http from 'http';
 import { CronExpressionParser } from 'cron-parser';
 
-// Mission Control HTTP helper — containers reach the host via Docker's host gateway
+// Todo API — routed through the credential proxy (port 3001) which is the only
+// host port reliably reachable from containers. The proxy forwards /api/todos/*
+// to Mission Control on localhost:3002.
 const MC_HOST = 'host.docker.internal';
-const MC_PORT = 3002;
+const MC_PORT = 3001;
 
 function mcFetch(
   method: string,

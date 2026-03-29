@@ -701,8 +701,8 @@ async function main(): Promise<void> {
     PROXY_BIND_HOST,
   );
 
-  // Start external API server
-  const apiServer = await startApiServer(API_PORT, API_HOST);
+  // Start external API server (bind to same host as credential proxy so containers can reach it)
+  const apiServer = await startApiServer(API_PORT, API_HOST || PROXY_BIND_HOST);
 
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {

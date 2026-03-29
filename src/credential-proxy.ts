@@ -46,6 +46,38 @@ export function startCredentialProxy(
 
   return new Promise((resolve, reject) => {
     const server = createServer((req, res) => {
+      // Proxy /api/todos/* to Mission Control (localhost:3002) for container MCP tools
+      if (req.url?.startsWith('/api/todos')) {
+        const mcChunks: Buffer[] = [];
+        req.on('data', (c) => mcChunks.push(c));
+        req.on('end', () => {
+          const mcBody = Buffer.concat(mcChunks);
+          const mcReq = httpRequest(
+            {
+              hostname: '127.0.0.1',
+              port: 3002,
+              path: req.url,
+              method: req.method,
+              headers: {
+                'content-type': 'application/json',
+                'content-length': mcBody.length,
+              },
+            },
+            (mcRes) => {
+              res.writeHead(mcRes.statusCode!, mcRes.headers);
+              mcRes.pipe(res);
+            },
+          );
+          mcReq.on('error', () => {
+            res.writeHead(502);
+            res.end('Mission Control unavailable');
+          });
+          mcReq.write(mcBody);
+          mcReq.end();
+        });
+        return;
+      }
+
       const chunks: Buffer[] = [];
       req.on('data', (c) => chunks.push(c));
       req.on('end', () => {
