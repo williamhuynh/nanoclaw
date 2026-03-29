@@ -48,9 +48,28 @@ function mcFetch(
       },
     );
     req.on('error', reject);
+    req.setTimeout(10_000, () => {
+      req.destroy();
+      reject(new Error('Mission Control request timed out'));
+    });
     if (payload) req.write(payload);
     req.end();
   });
+}
+
+async function mcToolCall(
+  method: string,
+  path: string,
+  body?: Record<string, unknown>,
+  errorLabel = 'Todo operation',
+): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
+  try {
+    const { data, status } = await mcFetch(method, path, body);
+    if (status >= 400) return { content: [{ type: 'text', text: `Error: ${JSON.stringify(data)}` }], isError: true };
+    return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `${errorLabel} failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+  }
 }
 
 const IPC_DIR = '/workspace/ipc';
@@ -482,24 +501,19 @@ server.tool(
   'todo_list',
   'List todos. Optionally filter by status, owner, horizon, or context.',
   {
-    status: z.string().optional().describe('Filter: pending, in_progress, awaiting_review, completed, cancelled'),
+    status: z.enum(['pending', 'in_progress', 'awaiting_review', 'completed', 'cancelled']).optional().describe('Filter: pending, in_progress, awaiting_review, completed, cancelled'),
     owner: z.string().optional().describe('Filter by owner: "human" or agent folder name'),
-    horizon: z.string().optional().describe('Filter: today, this_week, soon, none'),
-    context: z.string().optional().describe('Filter: work, personal, admin'),
+    horizon: z.enum(['today', 'this_week', 'soon', 'none']).optional().describe('Filter: today, this_week, soon, none'),
+    context: z.enum(['work', 'personal', 'admin']).optional().describe('Filter: work, personal, admin'),
   },
   async (args) => {
-    try {
-      const params = new URLSearchParams();
-      if (args.status) params.set('status', args.status);
-      if (args.owner) params.set('owner', args.owner);
-      if (args.horizon) params.set('horizon', args.horizon);
-      if (args.context) params.set('context', args.context);
-      const qs = params.toString();
-      const { data } = await mcFetch('GET', `/api/todos${qs ? '?' + qs : ''}`);
-      return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
-    } catch (err) {
-      return { content: [{ type: 'text' as const, text: `Error listing todos: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
-    }
+    const params = new URLSearchParams();
+    if (args.status) params.set('status', args.status);
+    if (args.owner) params.set('owner', args.owner);
+    if (args.horizon) params.set('horizon', args.horizon);
+    if (args.context) params.set('context', args.context);
+    const qs = params.toString();
+    return mcToolCall('GET', `/api/todos${qs ? '?' + qs : ''}`, undefined, 'List todos');
   },
 );
 
@@ -509,16 +523,7 @@ server.tool(
   {
     id: z.string().describe('The todo ID'),
   },
-  async (args) => {
-    try {
-      const { data, status } = await mcFetch('GET', `/api/todos/${args.id}`);
-      if (status === 404) return { content: [{ type: 'text' as const, text: 'Todo not found' }], isError: true };
-      if (status >= 400) return { content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }], isError: true };
-      return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
-    } catch (err) {
-      return { content: [{ type: 'text' as const, text: `Error getting todo: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
-    }
-  },
+  async (args) => mcToolCall('GET', `/api/todos/${args.id}`, undefined, 'Get todo'),
 );
 
 server.tool(
@@ -533,23 +538,15 @@ server.tool(
     source: z.enum(['manual', 'brain_dump', 'agent', 'meeting', 'channel']).optional(),
     source_ref: z.string().optional().describe('Reference ID (meeting ID, message ID, etc.)'),
   },
-  async (args) => {
-    try {
-      const { data, status } = await mcFetch('POST', '/api/todos', {
-        title: args.title,
-        description: args.description,
-        horizon: args.horizon || 'none',
-        owner: args.owner || 'human',
-        context: args.context || 'work',
-        source: args.source || 'agent',
-        source_ref: args.source_ref,
-      });
-      if (status >= 400) return { content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }], isError: true };
-      return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
-    } catch (err) {
-      return { content: [{ type: 'text' as const, text: `Error creating todo: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
-    }
-  },
+  async (args) => mcToolCall('POST', '/api/todos', {
+    title: args.title,
+    description: args.description,
+    horizon: args.horizon || 'none',
+    owner: args.owner || 'human',
+    context: args.context || 'work',
+    source: args.source || 'agent',
+    source_ref: args.source_ref,
+  }, 'Create todo'),
 );
 
 server.tool(
@@ -565,18 +562,12 @@ server.tool(
     context: z.enum(['work', 'personal', 'admin']).optional(),
   },
   async (args) => {
-    try {
-      const { id, ...updates } = args;
-      const body: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(updates)) {
-        if (v !== undefined) body[k] = v;
-      }
-      const { data, status } = await mcFetch('PUT', `/api/todos/${id}`, body);
-      if (status >= 400) return { content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }], isError: true };
-      return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
-    } catch (err) {
-      return { content: [{ type: 'text' as const, text: `Error updating todo: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+    const { id, ...updates } = args;
+    const body: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(updates)) {
+      if (v !== undefined) body[k] = v;
     }
+    return mcToolCall('PUT', `/api/todos/${id}`, body, 'Update todo');
   },
 );
 
@@ -588,18 +579,10 @@ server.tool(
     title: z.string().describe('Subtask title'),
     owner: z.string().optional().describe('"human" or agent folder name'),
   },
-  async (args) => {
-    try {
-      const { data, status } = await mcFetch('POST', `/api/todos/${args.todo_id}/subtasks`, {
-        title: args.title,
-        owner: args.owner || 'human',
-      });
-      if (status >= 400) return { content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }], isError: true };
-      return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
-    } catch (err) {
-      return { content: [{ type: 'text' as const, text: `Error creating subtask: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
-    }
-  },
+  async (args) => mcToolCall('POST', `/api/todos/${args.todo_id}/subtasks`, {
+    title: args.title,
+    owner: args.owner || 'human',
+  }, 'Create subtask'),
 );
 
 server.tool(
@@ -612,16 +595,10 @@ server.tool(
     title: z.string().optional(),
   },
   async (args) => {
-    try {
-      const body: Record<string, unknown> = {};
-      if (args.status) body.status = args.status;
-      if (args.title) body.title = args.title;
-      const { data, status } = await mcFetch('PUT', `/api/todos/${args.todo_id}/subtasks/${args.subtask_id}`, body);
-      if (status >= 400) return { content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }], isError: true };
-      return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
-    } catch (err) {
-      return { content: [{ type: 'text' as const, text: `Error updating subtask: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
-    }
+    const body: Record<string, unknown> = {};
+    if (args.status) body.status = args.status;
+    if (args.title) body.title = args.title;
+    return mcToolCall('PUT', `/api/todos/${args.todo_id}/subtasks/${args.subtask_id}`, body, 'Update subtask');
   },
 );
 
