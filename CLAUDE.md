@@ -6,6 +6,18 @@ Personal Claude assistant. See [README.md](README.md) for philosophy and setup. 
 
 Single Node.js process with skill-based channel system. Channels (WhatsApp, Telegram, Slack, Discord, Gmail) are skills that self-register at startup. Messages route to Claude Agent SDK running in containers (Linux VMs). Each group has isolated filesystem and memory.
 
+## Port Map
+
+| Port | Service | Bind | Notes |
+|------|---------|------|-------|
+| 3000 | Gmail OAuth callback | * | Leftover from OAuth setup — can be killed |
+| 3001 | NanoClaw credential proxy | 0.0.0.0 | Internal — containers route API calls through this |
+| 3002 | Mission Control | * | Dashboard, todo API, WebSocket (/ws/chat, /ws/events, etc.) |
+| 3004 | NanoClaw API | 0.0.0.0 | External REST API (Cloudflare tunnel), proxies /api/todos to 3002 |
+| 4000 | NanoClaw Apps | * | Companion service — app lifecycle, Docker management |
+
+Container agents reach the host via `host.docker.internal`. MCP todo tools call `host.docker.internal:3002`. The NanoClaw API at 3004 is the single external gateway (authenticated via bearer token).
+
 ## Key Files
 
 | File | Purpose |
