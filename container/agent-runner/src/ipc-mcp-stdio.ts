@@ -511,11 +511,10 @@ server.tool(
   },
   async (args) => {
     try {
-      const { data } = await mcFetch('GET', `/api/todos`);
-      const todos = data as Array<{ id: string }>;
-      const todo = todos.find((t) => t.id === args.id);
-      if (!todo) return { content: [{ type: 'text' as const, text: 'Todo not found' }], isError: true };
-      return { content: [{ type: 'text' as const, text: JSON.stringify(todo, null, 2) }] };
+      const { data, status } = await mcFetch('GET', `/api/todos/${args.id}`);
+      if (status === 404) return { content: [{ type: 'text' as const, text: 'Todo not found' }], isError: true };
+      if (status >= 400) return { content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }], isError: true };
+      return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
     } catch (err) {
       return { content: [{ type: 'text' as const, text: `Error getting todo: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
     }
