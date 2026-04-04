@@ -63,7 +63,13 @@ function makeRequest(
 function mcAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
     const req = http.request(
-      { hostname: '127.0.0.1', port: 3002, path: '/api/todos', method: 'GET', timeout: 500 },
+      {
+        hostname: '127.0.0.1',
+        port: 3002,
+        path: '/api/todos',
+        method: 'GET',
+        timeout: 500,
+      },
       (res) => {
         res.resume();
         resolve(true);
@@ -271,17 +277,14 @@ describe('credential-proxy todo routes', () => {
 
     // Send a todo request with an x-api-key header — it should go to MC,
     // not upstream, so the upstream mock should never see the request at all.
-    await makeRequest(
-      proxyPort,
-      {
-        method: 'GET',
-        path: '/api/todos',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': 'should-not-reach-upstream',
-        },
+    await makeRequest(proxyPort, {
+      method: 'GET',
+      path: '/api/todos',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': 'should-not-reach-upstream',
       },
-    );
+    });
 
     // Upstream was never contacted — no API key injection occurred
     expect(upstreamHitCount).toBe(0);

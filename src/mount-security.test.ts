@@ -9,7 +9,8 @@ let mockExistsSync: ReturnType<typeof vi.fn>;
 let mockReadFileSync: ReturnType<typeof vi.fn>;
 let mockRealpathSync: ReturnType<typeof vi.fn>;
 
-const FAKE_ALLOWLIST_PATH = '/home/testuser/.config/nanoclaw/mount-allowlist.json';
+const FAKE_ALLOWLIST_PATH =
+  '/home/testuser/.config/nanoclaw/mount-allowlist.json';
 
 // Mock config before any imports
 vi.mock('./config.js', () => ({
@@ -148,7 +149,11 @@ describe('loadMountAllowlist', () => {
     const mod = await freshModule();
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(
-      JSON.stringify({ allowedRoots: 'not-array', blockedPatterns: [], nonMainReadOnly: true }),
+      JSON.stringify({
+        allowedRoots: 'not-array',
+        blockedPatterns: [],
+        nonMainReadOnly: true,
+      }),
     );
 
     const result = mod.loadMountAllowlist();

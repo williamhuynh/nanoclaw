@@ -176,10 +176,7 @@ describe('Volume mounts — TOME', () => {
   });
 
   it('TOME dir mounted rw for non-main group', () => {
-    mockExistingPaths([
-      TOME_DIR,
-      '/tmp/nanoclaw-test-groups/global',
-    ]);
+    mockExistingPaths([TOME_DIR, '/tmp/nanoclaw-test-groups/global']);
     const mounts = buildVolumeMounts(baseGroup, false);
     const tome = findMount(mounts, '/workspace/global/tome');
     expect(tome).toBeDefined();
@@ -450,7 +447,8 @@ describe('Session dir', () => {
 
     const settingsCall = writeFileSyncMock.mock.calls.find(
       (call: unknown[]) =>
-        typeof call[0] === 'string' && String(call[0]).endsWith('settings.json'),
+        typeof call[0] === 'string' &&
+        String(call[0]).endsWith('settings.json'),
     );
     expect(settingsCall).toBeDefined();
 

@@ -19,7 +19,9 @@ describe('readEnvFile', () => {
   });
 
   it('only returns requested keys', () => {
-    vi.spyOn(fs, 'readFileSync').mockReturnValue('FOO=bar\nBAZ=qux\nEXTRA=nope\n');
+    vi.spyOn(fs, 'readFileSync').mockReturnValue(
+      'FOO=bar\nBAZ=qux\nEXTRA=nope\n',
+    );
     const result = readEnvFile(['FOO']);
     expect(result).toEqual({ FOO: 'bar' });
     expect(result).not.toHaveProperty('BAZ');
@@ -39,7 +41,9 @@ describe('readEnvFile', () => {
   });
 
   it('skips lines starting with #', () => {
-    vi.spyOn(fs, 'readFileSync').mockReturnValue('# comment\nFOO=bar\n# another\n');
+    vi.spyOn(fs, 'readFileSync').mockReturnValue(
+      '# comment\nFOO=bar\n# another\n',
+    );
     const result = readEnvFile(['FOO']);
     expect(result).toEqual({ FOO: 'bar' });
   });

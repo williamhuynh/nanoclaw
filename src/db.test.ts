@@ -525,7 +525,12 @@ describe('isEmailProcessed', () => {
 
 describe('markEmailProcessed', () => {
   it('stores the email record so it is detectable via isEmailProcessed', () => {
-    markEmailProcessed('email-2', 'thread-2', 'bob@example.com', 'Test Subject');
+    markEmailProcessed(
+      'email-2',
+      'thread-2',
+      'bob@example.com',
+      'Test Subject',
+    );
     expect(isEmailProcessed('email-2')).toBe(true);
     // A different ID should still be unprocessed
     expect(isEmailProcessed('email-other')).toBe(false);

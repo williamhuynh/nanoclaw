@@ -20,14 +20,17 @@ vi.mock('./group-folder.js', () => ({
   isValidGroupFolder: vi.fn(() => true),
 }));
 
-const mockGroups: Record<string, {
-  name: string;
-  folder: string;
-  trigger: string;
-  added_at: string;
-  isMain?: boolean;
-  requiresTrigger?: boolean;
-}> = {
+const mockGroups: Record<
+  string,
+  {
+    name: string;
+    folder: string;
+    trigger: string;
+    added_at: string;
+    isMain?: boolean;
+    requiresTrigger?: boolean;
+  }
+> = {
   'group-jid-1@g.us': {
     name: 'Test Group',
     folder: 'test-group',
@@ -78,8 +81,20 @@ const mockTasks = [
 ];
 
 const mockChats = [
-  { jid: 'group-jid-1@g.us', name: 'Test Group', last_message_time: '2024-01-01', channel: 'whatsapp', is_group: 1 },
-  { jid: 'user-1@s.whatsapp.net', name: 'Alice', last_message_time: '2024-01-01', channel: 'whatsapp', is_group: 0 },
+  {
+    jid: 'group-jid-1@g.us',
+    name: 'Test Group',
+    last_message_time: '2024-01-01',
+    channel: 'whatsapp',
+    is_group: 1,
+  },
+  {
+    jid: 'user-1@s.whatsapp.net',
+    name: 'Alice',
+    last_message_time: '2024-01-01',
+    channel: 'whatsapp',
+    is_group: 0,
+  },
 ];
 
 const mockMessages = [
@@ -130,7 +145,11 @@ function makeRequest(
   port: number,
   options: http.RequestOptions,
   body = '',
-): Promise<{ statusCode: number; body: string; headers: http.IncomingHttpHeaders }> {
+): Promise<{
+  statusCode: number;
+  body: string;
+  headers: http.IncomingHttpHeaders;
+}> {
   return new Promise((resolve, reject) => {
     const req = http.request(
       { ...options, hostname: '127.0.0.1', port },
@@ -216,7 +235,10 @@ describe('API server', () => {
   // -----------------------------------------------------------------------
   describe('authentication', () => {
     it('rejects requests without Authorization header with 401', async () => {
-      const res = await makeRequest(port, { method: 'GET', path: '/api/status' });
+      const res = await makeRequest(port, {
+        method: 'GET',
+        path: '/api/status',
+      });
       expect(res.statusCode).toBe(401);
       const body = JSON.parse(res.body);
       expect(body.error).toContain('Unauthorized');
@@ -515,13 +537,18 @@ describe('API server', () => {
   // -----------------------------------------------------------------------
   describe('CORS', () => {
     it('OPTIONS returns 204 with Access-Control headers', async () => {
-      const res = await makeRequest(port, { method: 'OPTIONS', path: '/api/status' });
+      const res = await makeRequest(port, {
+        method: 'OPTIONS',
+        path: '/api/status',
+      });
       expect(res.statusCode).toBe(204);
       expect(res.headers['access-control-allow-origin']).toBe('*');
       expect(res.headers['access-control-allow-methods']).toContain('GET');
       expect(res.headers['access-control-allow-methods']).toContain('POST');
       expect(res.headers['access-control-allow-methods']).toContain('PATCH');
-      expect(res.headers['access-control-allow-headers']).toContain('Authorization');
+      expect(res.headers['access-control-allow-headers']).toContain(
+        'Authorization',
+      );
     });
 
     it('authenticated responses include Access-Control-Allow-Origin header', async () => {
@@ -559,7 +586,10 @@ describe('API server', () => {
     });
 
     it('/api/todos requires authentication', async () => {
-      const res = await makeRequest(port, { method: 'GET', path: '/api/todos' });
+      const res = await makeRequest(port, {
+        method: 'GET',
+        path: '/api/todos',
+      });
       expect(res.statusCode).toBe(401);
     });
   });

@@ -166,10 +166,7 @@ export async function processMessageIpc(
     const targetGroup = registeredGroups[data.chatJid];
     if (isMain || (targetGroup && targetGroup.folder === sourceGroup)) {
       await deps.sendMessage(data.chatJid, data.text);
-      logger.info(
-        { chatJid: data.chatJid, sourceGroup },
-        'IPC message sent',
-      );
+      logger.info({ chatJid: data.chatJid, sourceGroup }, 'IPC message sent');
     } else {
       logger.warn(
         { chatJid: data.chatJid, sourceGroup },
