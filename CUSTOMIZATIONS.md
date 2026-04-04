@@ -135,3 +135,17 @@ Each entry: **what** was changed, **why**, and **which files** were modified.
 
 - `.claude/hooks/safety-check.sh`: PreToolUse hook script that detects DROP TABLE, TRUNCATE, DELETE without WHERE, ALTER DROP COLUMN, rm -rf, git reset --hard, git clean -f, git push --force, and .env/credential file modifications. Returns `permissionDecision: "ask"` to prompt for approval.
 - `.claude/settings.json`: Registers the hook on Write, Edit, and Bash tools.
+
+---
+
+## Kept credential proxy instead of OneCLI (2026-04-04)
+
+**Decision:** Upstream v1.2.36+ replaced `credential-proxy.ts` with OneCLI Agent Vault. We kept our credential proxy for three reasons:
+
+1. Our todo API proxy route lives in `credential-proxy.ts` (port 3001 → MC port 3002). Containers can only reach port 3001 on this VPS.
+2. Docker networking on this VPS has unpredictable port reachability — OneCLI's port 10254 may not work from containers.
+3. OneCLI is still early in development — waiting for it to stabilise before migrating.
+
+**Impact:** Each upstream merge will have a modify/delete conflict on `credential-proxy.ts`. Resolve by keeping our version (`git add src/credential-proxy.ts`). Also need to remove OneCLI references from `container-runner.ts` and `index.ts` and restore credential proxy imports.
+
+**Revisit:** When OneCLI stabilises and the todo proxy route can be moved elsewhere.
