@@ -332,15 +332,15 @@ describe('Container args', () => {
     },
   ];
 
-  it('GIT_AUTHOR_NAME env var present', () => {
-    const args = buildContainerArgs(stubMounts, 'test-container');
+  it('GIT_AUTHOR_NAME env var present', async () => {
+    const args = await buildContainerArgs(stubMounts, 'test-container');
     const idx = args.indexOf('GIT_AUTHOR_NAME=NanoClaw');
     expect(idx).toBeGreaterThan(-1);
     expect(args[idx - 1]).toBe('-e');
   });
 
-  it('GIT_AUTHOR_EMAIL env var present', () => {
-    const args = buildContainerArgs(stubMounts, 'test-container');
+  it('GIT_AUTHOR_EMAIL env var present', async () => {
+    const args = await buildContainerArgs(stubMounts, 'test-container');
     const idx = args.indexOf(
       'GIT_AUTHOR_EMAIL=nanoclaw@users.noreply.github.com',
     );
@@ -348,15 +348,15 @@ describe('Container args', () => {
     expect(args[idx - 1]).toBe('-e');
   });
 
-  it('GIT_COMMITTER_NAME env var present', () => {
-    const args = buildContainerArgs(stubMounts, 'test-container');
+  it('GIT_COMMITTER_NAME env var present', async () => {
+    const args = await buildContainerArgs(stubMounts, 'test-container');
     const idx = args.indexOf('GIT_COMMITTER_NAME=NanoClaw');
     expect(idx).toBeGreaterThan(-1);
     expect(args[idx - 1]).toBe('-e');
   });
 
-  it('GIT_COMMITTER_EMAIL env var present', () => {
-    const args = buildContainerArgs(stubMounts, 'test-container');
+  it('GIT_COMMITTER_EMAIL env var present', async () => {
+    const args = await buildContainerArgs(stubMounts, 'test-container');
     const idx = args.indexOf(
       'GIT_COMMITTER_EMAIL=nanoclaw@users.noreply.github.com',
     );
@@ -364,22 +364,22 @@ describe('Container args', () => {
     expect(args[idx - 1]).toBe('-e');
   });
 
-  it('API key mode sets ANTHROPIC_API_KEY=placeholder', () => {
+  it('API key mode sets ANTHROPIC_API_KEY=placeholder', async () => {
     detectAuthModeMock.mockReturnValue('api-key');
-    const args = buildContainerArgs(stubMounts, 'test-container');
+    const args = await buildContainerArgs(stubMounts, 'test-container');
     expect(args).toContain('ANTHROPIC_API_KEY=placeholder');
     expect(args).not.toContain('CLAUDE_CODE_OAUTH_TOKEN=placeholder');
   });
 
-  it('OAuth mode sets CLAUDE_CODE_OAUTH_TOKEN=placeholder', () => {
-    detectAuthModeMock.mockReturnValue('oauth');
-    const args = buildContainerArgs(stubMounts, 'test-container');
+  it('OAuth mode sets CLAUDE_CODE_OAUTH_TOKEN=placeholder', async () => {
+    detectAuthModeMock.mockReturnValue('oauth' as any);
+    const args = await buildContainerArgs(stubMounts, 'test-container');
     expect(args).toContain('CLAUDE_CODE_OAUTH_TOKEN=placeholder');
     expect(args).not.toContain('ANTHROPIC_API_KEY=placeholder');
   });
 
-  it('TZ env var set', () => {
-    const args = buildContainerArgs(stubMounts, 'test-container');
+  it('TZ env var set', async () => {
+    const args = await buildContainerArgs(stubMounts, 'test-container');
     expect(args).toContain('TZ=America/Los_Angeles');
   });
 });
@@ -397,14 +397,16 @@ describe('TOME skill sync', () => {
       return false;
     });
 
-    readdirSyncMock.mockImplementation((p: unknown) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    readdirSyncMock.mockImplementation(((p: any) => {
       if (String(p) === tomeSkillsSrc) return ['my-skill'];
       return [];
-    });
+    }) as any);
 
-    statSyncMock.mockImplementation(() => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    statSyncMock.mockImplementation((() => ({
       isDirectory: () => true,
-    }));
+    })) as any);
 
     buildVolumeMounts(baseGroup, false);
 

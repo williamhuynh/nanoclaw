@@ -15,6 +15,7 @@ vi.mock('./config.js', () => ({
   DATA_DIR: '/tmp/nanoclaw-test-data',
   GROUPS_DIR: '/tmp/nanoclaw-test-groups',
   IDLE_TIMEOUT: 1800000, // 30min
+  ONECLI_URL: 'http://localhost:10254',
   TIMEZONE: 'America/Los_Angeles',
   TOME_DIR: '/home/testuser/tome',
 }));
@@ -50,6 +51,27 @@ vi.mock('fs', async () => {
 // Mock mount-security
 vi.mock('./mount-security.js', () => ({
   validateAdditionalMounts: vi.fn(() => []),
+}));
+
+// Mock container-runtime
+vi.mock('./container-runtime.js', () => ({
+  CONTAINER_RUNTIME_BIN: 'docker',
+  CONTAINER_HOST_GATEWAY: 'host.docker.internal',
+  PROXY_BIND_HOST: '0.0.0.0',
+  hostGatewayArgs: () => [],
+  readonlyMountArgs: (h: string, c: string) => ['-v', `${h}:${c}:ro`],
+  stopContainer: vi.fn(),
+}));
+
+// Mock OneCLI SDK
+vi.mock('@onecli-sh/sdk', () => ({
+  OneCLI: class {
+    applyContainerConfig = vi.fn().mockResolvedValue(true);
+    createAgent = vi.fn().mockResolvedValue({ id: 'test' });
+    ensureAgent = vi
+      .fn()
+      .mockResolvedValue({ name: 'test', identifier: 'test', created: true });
+  },
 }));
 
 // Create a controllable fake ChildProcess
@@ -244,6 +266,9 @@ describe('container-runner tome mount', () => {
       onOutput,
     );
 
+    // Flush microtask queue so async buildContainerArgs resolves before we check spawn
+    await vi.advanceTimersByTimeAsync(0);
+
     // Get the spawn args - use the latest call since previous tests also call spawn
     const spawnMock = spawn as ReturnType<typeof vi.fn>;
     const lastCallIdx = spawnMock.mock.calls.length - 1;
@@ -299,6 +324,8 @@ describe('container-runner tome mount', () => {
       () => {},
       onOutput,
     );
+
+    await vi.advanceTimersByTimeAsync(0);
 
     const spawnMock = spawn as ReturnType<typeof vi.fn>;
     const lastCallIdx = spawnMock.mock.calls.length - 1;
