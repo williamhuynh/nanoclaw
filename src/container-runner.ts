@@ -52,13 +52,15 @@ export interface ContainerOutput {
   error?: string;
 }
 
-interface VolumeMount {
+/** @internal - exported for testing */
+export interface VolumeMount {
   hostPath: string;
   containerPath: string;
   readonly: boolean;
 }
 
-function buildVolumeMounts(
+/** @internal - exported for testing */
+export function buildVolumeMounts(
   group: RegisteredGroup,
   isMain: boolean,
 ): VolumeMount[] {
@@ -278,7 +280,8 @@ function buildVolumeMounts(
   return mounts;
 }
 
-function buildContainerArgs(
+/** @internal - exported for testing */
+export function buildContainerArgs(
   mounts: VolumeMount[],
   containerName: string,
 ): string[] {
