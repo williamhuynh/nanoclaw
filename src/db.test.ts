@@ -667,7 +667,7 @@ describe('deleteRegisteredGroup', () => {
   it('deleteRegisteredGroup removes the group', () => {
     setRegisteredGroup('worker:todo-test@nanoclaw', {
       name: 'Test Worker',
-      folder: 'worker_todo-test',
+      folder: 'worker:todo-test',
       trigger: '@Sky',
       added_at: new Date().toISOString(),
     });
