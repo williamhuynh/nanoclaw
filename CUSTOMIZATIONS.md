@@ -149,3 +149,28 @@ Each entry: **what** was changed, **why**, and **which files** were modified.
 **Impact:** Each upstream merge will have a modify/delete conflict on `credential-proxy.ts`. Resolve by keeping our version (`git add src/credential-proxy.ts`). Also need to remove OneCLI references from `container-runner.ts` and `index.ts` and restore credential proxy imports.
 
 **Revisit:** When OneCLI stabilises and the todo proxy route can be moved elsewhere.
+
+---
+
+## Todo-Scoped Worker Containers (2026-04-05)
+
+**What:** Todo assignment now spawns isolated worker containers (`worker:todo-{id}`) instead of injecting into the main agent's session. Multiple todos run in parallel (up to 15 concurrent containers).
+
+**Why:** Parallel execution without context-switching. Each worker gets its own session, CLAUDE.md (from Sky's template + todo context), and Sky-level mounts.
+
+**Changes:**
+
+- `src/worker.ts` — Worker lifecycle module (create, soft-delete to trash, HITL cleanup via `listTrash`/`purgeTrash`)
+- `src/config.ts` — `MAX_CONCURRENT_CONTAINERS` default raised from 5 to 15
+- `src/container-runner.ts` — `buildVolumeMounts` gives `worker:todo-*` groups Sky-level mounts (project root, store, ToME) without `isMain`
+- `src/api.ts` — `POST /api/workers` and `DELETE /api/workers/:todoId` endpoints, plus `setWorkerCallbacks` for in-memory sync
+- `src/index.ts` — `processGroupMessages` and `startMessageLoop` handle channelless worker groups (skip typing, skip channel output)
+- `src/group-folder.ts` — `GROUP_FOLDER_PATTERN` regex allows `:` for `worker:todo-*` folder names
+- `MC: src/server/routes/todos.ts` — Assignment calls `POST /api/workers`, completion/cancellation calls `DELETE /api/workers/:todoId`
+
+**Design decisions:**
+- Only `worker:todo-*` groups get Sky replication. Existing specialist workers (`worker:llm-*`) unchanged.
+- Workers communicate via IPC `send_message` and MCP todo tools (no channel).
+- Soft-delete to `data/trash/` on completion. Weekly HITL cleanup prompt (no auto-purge).
+- CLAUDE.md generated once at assignment time. Session context carries through feedback rounds.
+- Path safety checks in `destroyWorker` prevent accidental deletion of non-worker folders.
