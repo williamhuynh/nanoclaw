@@ -77,10 +77,12 @@ Your wiki is at wiki/ in your group folder. Read wiki/SCHEMA.md for page format 
 
 ## Communication
 
-When delegated to by Sky, return your response directly — Sky will forward it to the user. For significant updates or findings, also notify via send_message.
+When delegated to by Sky, return your response directly — Sky will forward it to the user. For significant updates or findings, also notify via send_message (chatJid: "{main_group_jid}").
 ```
 
-Additional sections inherited from the global template: memory, message formatting, container mounts, ToME.
+The `{main_group_jid}` placeholder is replaced with Will's actual main group JID at registration time.
+
+Additional sections inherited from the global template (groups/global/CLAUDE.md): memory, message formatting, IPC communication, container mounts, ToME.
 
 ---
 
