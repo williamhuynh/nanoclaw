@@ -307,7 +307,7 @@ If no specialist matches, then do the work yourself. When delegating, include ev
 
 Check `/workspace/ipc/available_agents.json` for the full list. Key agents:
 
-- **aid-coo** — AiD operational knowledge: client pipeline, business decisions, meeting notes, team context. Delegate anything about AI Decisions (AiD) business operations, client engagements, or operational decisions.
+- **aid-coo** — AiD operational knowledge. Delegate when the user asks about: specific clients or engagements (e.g., "Alceon", "National Archives"), client pipeline or revenue, business decisions, meeting notes, team members, or anything related to AI Decisions (AiD) operations. If you don't recognise a name but it could be a client, delegate to aid-coo to check.
 
 ---
 
