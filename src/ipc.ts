@@ -163,8 +163,12 @@ export async function processMessageIpc(
 
   if (data.type === 'message' && data.chatJid && data.text) {
     // Authorization: verify this group can send to this chatJid
+    // Main can send anywhere. Non-main can send to own group or to main group
+    // (workers need to notify the user via main's JID).
     const targetGroup = registeredGroups[data.chatJid];
-    if (isMain || (targetGroup && targetGroup.folder === sourceGroup)) {
+    const targetIsMain = targetGroup?.isMain === true;
+    const isSelfSend = targetGroup && targetGroup.folder === sourceGroup;
+    if (isMain || isSelfSend || targetIsMain) {
       await deps.sendMessage(data.chatJid, data.text);
       logger.info({ chatJid: data.chatJid, sourceGroup }, 'IPC message sent');
     } else {
@@ -176,7 +180,9 @@ export async function processMessageIpc(
   }
   if (data.type === 'send_photo' && data.chatJid && data.filePath) {
     const targetGroup = registeredGroups[data.chatJid];
-    if (isMain || (targetGroup && targetGroup.folder === sourceGroup)) {
+    const photoTargetIsMain = targetGroup?.isMain === true;
+    const photoIsSelfSend = targetGroup && targetGroup.folder === sourceGroup;
+    if (isMain || photoIsSelfSend || photoTargetIsMain) {
       // Resolve container path to host path
       const groupHostPath = resolveGroupFolderPath(sourceGroup);
       let hostFilePath: string;
