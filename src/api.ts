@@ -407,17 +407,19 @@ async function handlePostWorker(
   }
 
   const groups = getAllRegisteredGroups();
-  const mainGroup = Object.values(groups).find((g) => g.isMain);
-  if (!mainGroup) {
+  const mainEntry = Object.entries(groups).find(([, g]) => g.isMain);
+  if (!mainEntry) {
     json(res, 500, { error: 'No main group configured' });
     return;
   }
+  const [mainJid, mainGroup] = mainEntry;
 
   const registration = await createWorker({
     todoId,
     title,
     description,
     mainGroupFolder: mainGroup.folder,
+    notifyJid: mainJid,
   });
 
   const jid = workerJid(todoId);

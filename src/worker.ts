@@ -23,6 +23,7 @@ export interface TodoContext {
   todoId: string;
   title: string;
   description?: string;
+  notifyJid?: string;
 }
 
 export interface CreateWorkerOpts {
@@ -30,6 +31,7 @@ export interface CreateWorkerOpts {
   title: string;
   description?: string;
   mainGroupFolder: string;
+  notifyJid?: string;
 }
 
 export interface TrashEntry {
@@ -77,6 +79,10 @@ export function generateWorkerClaudeMd(
     ? `\n**Description:** ${todoContext.description}\n`
     : '';
 
+  const notifyLine = todoContext.notifyJid
+    ? `\n**Notify JID:** ${todoContext.notifyJid} (use this as chatJid when calling send_message)\n`
+    : '';
+
   md += `
 ---
 
@@ -84,13 +90,19 @@ export function generateWorkerClaudeMd(
 
 **Todo ID:** ${todoContext.todoId}
 **Title:** ${todoContext.title}
-${descLine}
-## Workflow
+${descLine}${notifyLine}
+## Worker Workflow
 
-1. Read the assignment above carefully.
-2. Complete the work described in the title and description.
-3. When done, write your results to the IPC output so the orchestrator can relay them.
-4. Mark the todo as complete when finished.
+You are a worker container assigned to a single todo. Follow this workflow:
+
+1. Set the todo status to "in_progress" using todo_update so the user knows you've started.
+2. Do the work. Use all your available tools.
+3. When done, use todo_update to:
+   - Set status to "awaiting_review" (NEVER "completed" — only the user marks things completed)
+   - Set result_content — always READ existing content first with todo_get and APPEND your update under a new "### Agent — Round N" header. Never overwrite previous rounds.
+4. Notify the user via send_message${todoContext.notifyJid ? ` (chatJid: "${todoContext.notifyJid}")` : ''} that the task is ready for review. Keep the notification short — just say what you did and that it's ready for review in the todo card.
+
+Use todo_get with id "${todoContext.todoId}" to see full details before starting.
 `;
 
   return md;
@@ -125,6 +137,7 @@ export async function createWorker(
     todoId: opts.todoId,
     title: opts.title,
     description: opts.description,
+    notifyJid: opts.notifyJid,
   };
   const claudeMd = generateWorkerClaudeMd(baseTemplate, todoContext);
 
