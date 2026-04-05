@@ -303,6 +303,12 @@ Use the `mcp__nanoclaw__delegate` tool to delegate. It takes a `target_group` (f
 
 If no specialist matches, then do the work yourself. When delegating, include everything the specialist needs in the prompt — they have no access to your conversation history.
 
+### Known Specialists
+
+Check `/workspace/ipc/available_agents.json` for the full list. Key agents:
+
+- **aid-coo** — AiD operational knowledge: client pipeline, business decisions, meeting notes, team context. Delegate anything about AI Decisions (AiD) business operations, client engagements, or operational decisions.
+
 ---
 
 ## Working on Todos

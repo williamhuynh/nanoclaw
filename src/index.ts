@@ -73,7 +73,7 @@ import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
 import { emitEvent } from './events.js';
 import { logger } from './logger.js';
-import { isWorkerJid } from './worker.js';
+import { isWorkerJid, isTodoWorkerFolder } from './worker.js';
 import {
   searchNewEmails,
   sendEmailReply,
@@ -418,7 +418,9 @@ async function runAgent(
   // Write available agents snapshot so the delegate skill can discover specialists
   if (isMain) {
     const agents = Object.entries(registeredGroups)
-      .filter(([jid]) => jid.startsWith('worker:'))
+      .filter(
+        ([, g]) => !g.isMain && !isTodoWorkerFolder(g.folder),
+      )
       .map(([jid, g]) => ({
         folder: g.folder,
         name: g.name,

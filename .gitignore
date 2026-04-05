@@ -20,6 +20,7 @@ groups/email/*
 !groups/main/CLAUDE.md
 !groups/global/CLAUDE.md
 !groups/global/contexts/
+!groups/global/wiki/
 !groups/email/CLAUDE.md
 !groups/linkedin-agent/
 groups/linkedin-agent/*
@@ -33,6 +34,10 @@ groups/tandemly-dev/*
 !groups/mission-control/
 groups/mission-control/*
 !groups/mission-control/CLAUDE.md
+!groups/aid-coo/
+groups/aid-coo/*
+!groups/aid-coo/CLAUDE.md
+!groups/aid-coo/wiki/
 
 # Secrets
 *.keys.json
