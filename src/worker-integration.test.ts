@@ -75,6 +75,7 @@ vi.mock('./db.js', () => ({
   getAllTasks: vi.fn(() => []),
   getMessagesSince: vi.fn(() => []),
   storeMessage: vi.fn((msg: Record<string, unknown>) => mockMessages.push(msg)),
+  storeChatMetadata: vi.fn(),
   getTaskById: vi.fn(),
 }));
 
@@ -187,10 +188,10 @@ describe('Worker API integration', () => {
     const created = JSON.parse(createRes.body);
     expect(created.ok).toBe(true);
     expect(created.workerJid).toBe('worker:todo-integ-1@nanoclaw');
-    expect(created.workerFolder).toBe('worker:todo-integ-1');
+    expect(created.workerFolder).toBe('worker-todo-integ-1');
 
     // Verify group folder created
-    const workerDir = path.join(groupsDir, 'worker:todo-integ-1');
+    const workerDir = path.join(groupsDir, 'worker-todo-integ-1');
     expect(fs.existsSync(workerDir)).toBe(true);
     expect(fs.existsSync(path.join(workerDir, 'CLAUDE.md'))).toBe(true);
 
@@ -222,7 +223,7 @@ describe('Worker API integration', () => {
     expect(fs.existsSync(trashDir)).toBe(true);
     const trashEntries = fs.readdirSync(trashDir);
     const workerTrash = trashEntries.find((e) =>
-      e.startsWith('worker:todo-integ-1--'),
+      e.startsWith('worker-todo-integ-1--'),
     );
     expect(workerTrash).toBeDefined();
 

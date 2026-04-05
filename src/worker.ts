@@ -1,8 +1,17 @@
 import fs from 'fs';
 import path from 'path';
 
-import { ASSISTANT_NAME, DATA_DIR, DEFAULT_TRIGGER, GROUPS_DIR } from './config.js';
-import { deleteRegisteredGroup, deleteSession, setRegisteredGroup } from './db.js';
+import {
+  ASSISTANT_NAME,
+  DATA_DIR,
+  DEFAULT_TRIGGER,
+  GROUPS_DIR,
+} from './config.js';
+import {
+  deleteRegisteredGroup,
+  deleteSession,
+  setRegisteredGroup,
+} from './db.js';
 import { logger } from './logger.js';
 import { RegisteredGroup } from './types.js';
 
@@ -39,7 +48,7 @@ export function workerJid(todoId: string): string {
 }
 
 export function workerFolder(todoId: string): string {
-  return `worker:todo-${todoId}`;
+  return `worker-todo-${todoId}`;
 }
 
 export function isWorkerJid(jid: string): boolean {
@@ -47,7 +56,7 @@ export function isWorkerJid(jid: string): boolean {
 }
 
 export function isTodoWorkerFolder(folder: string): boolean {
-  return /^worker:todo-.+$/.test(folder);
+  return /^worker-todo-.+$/.test(folder);
 }
 
 // ---------------------------------------------------------------------------
@@ -61,10 +70,7 @@ export function generateWorkerClaudeMd(
   todoContext: TodoContext,
 ): string {
   // Replace the top-level header with Worker variant
-  let md = baseTemplate.replace(
-    /^# .+$/m,
-    `# ${ASSISTANT_NAME} — Worker`,
-  );
+  let md = baseTemplate.replace(/^# .+$/m, `# ${ASSISTANT_NAME} — Worker`);
 
   // Append todo-specific section
   const descLine = todoContext.description

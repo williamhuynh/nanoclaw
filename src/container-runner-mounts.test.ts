@@ -82,7 +82,7 @@ vi.mock('./mount-security.js', () => ({
 }));
 
 vi.mock('./worker.js', () => ({
-  isTodoWorkerFolder: (folder: string) => folder.startsWith('worker:todo-'),
+  isTodoWorkerFolder: (folder: string) => folder.startsWith('worker-todo-'),
 }));
 
 vi.mock('fs', async () => {
@@ -473,7 +473,7 @@ describe('todo worker mounts', () => {
 
     const group: RegisteredGroup = {
       name: 'Worker: test task',
-      folder: 'worker:todo-abc',
+      folder: 'worker-todo-abc',
       trigger: '@Sky',
       added_at: '2026-01-01',
       requiresTrigger: false,
@@ -494,7 +494,7 @@ describe('todo worker mounts', () => {
     // Should have its own group folder (not main's)
     const groupMount = findMount(mounts, '/workspace/group');
     expect(groupMount).toBeDefined();
-    expect(groupMount!.hostPath).toContain('worker:todo-abc');
+    expect(groupMount!.hostPath).toContain('worker-todo-abc');
 
     // Should have ToME
     const tomeMount = findMount(mounts, '/workspace/global/tome');

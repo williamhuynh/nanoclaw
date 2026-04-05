@@ -12,7 +12,8 @@ vi.mock('./config.js', () => {
       return (globalThis as Record<string, unknown>).__TEST_DATA_DIR as string;
     },
     get GROUPS_DIR() {
-      return (globalThis as Record<string, unknown>).__TEST_GROUPS_DIR as string;
+      return (globalThis as Record<string, unknown>)
+        .__TEST_GROUPS_DIR as string;
     },
     ASSISTANT_NAME: 'Sky',
     DEFAULT_TRIGGER: '@Sky',
@@ -89,7 +90,7 @@ describe('naming helpers', () => {
   });
 
   it('workerFolder returns worker:todo-{id}', () => {
-    expect(workerFolder('abc-123')).toBe('worker:todo-abc-123');
+    expect(workerFolder('abc-123')).toBe('worker-todo-abc-123');
   });
 
   it('isWorkerJid returns true for worker:todo-* JIDs', () => {
@@ -104,8 +105,8 @@ describe('naming helpers', () => {
   });
 
   it('isTodoWorkerFolder returns true for worker:todo-* folders', () => {
-    expect(isTodoWorkerFolder('worker:todo-abc')).toBe(true);
-    expect(isTodoWorkerFolder('worker:todo-123')).toBe(true);
+    expect(isTodoWorkerFolder('worker-todo-abc')).toBe(true);
+    expect(isTodoWorkerFolder('worker-todo-123')).toBe(true);
   });
 
   it('isTodoWorkerFolder returns false for other folders', () => {
@@ -189,7 +190,7 @@ describe('createWorker', () => {
     });
 
     // Folder was created
-    const expectedFolder = 'worker:todo-abc-123';
+    const expectedFolder = 'worker-todo-abc-123';
     const folderPath = path.join(groupsDir, expectedFolder);
     expect(fs.existsSync(folderPath)).toBe(true);
 
@@ -250,14 +251,11 @@ describe('destroyWorker', () => {
   it('moves group and session folders to trash', async () => {
     const dataDir = path.join(tmpBase, 'data');
     const groupsDir = path.join(tmpBase, 'groups');
-    const folder = 'worker:todo-destroy-1';
+    const folder = 'worker-todo-destroy-1';
 
     // Create group folder
     fs.mkdirSync(path.join(groupsDir, folder), { recursive: true });
-    fs.writeFileSync(
-      path.join(groupsDir, folder, 'CLAUDE.md'),
-      'test content',
-    );
+    fs.writeFileSync(path.join(groupsDir, folder, 'CLAUDE.md'), 'test content');
 
     // Create session folder
     fs.mkdirSync(path.join(dataDir, 'sessions', folder), { recursive: true });
@@ -289,9 +287,9 @@ describe('destroyWorker', () => {
     const trashDir = path.join(dataDir, 'trash');
     expect(fs.existsSync(trashDir)).toBe(true);
     const trashEntries = fs.readdirSync(trashDir);
-    expect(trashEntries.some((e) => e.startsWith('worker:todo-destroy-1--'))).toBe(
-      true,
-    );
+    expect(
+      trashEntries.some((e) => e.startsWith('worker-todo-destroy-1--')),
+    ).toBe(true);
   });
 
   it('blocks path traversal attempts', async () => {
@@ -310,7 +308,7 @@ describe('destroyWorker', () => {
     const dataDir = path.join(tmpBase, 'data');
 
     // Create IPC dir so sentinel can be written
-    const folder = 'worker:todo-missing';
+    const folder = 'worker-todo-missing';
     fs.mkdirSync(path.join(dataDir, 'ipc', folder, 'input'), {
       recursive: true,
     });
@@ -337,11 +335,11 @@ describe('listTrash', () => {
 
     // Create an entry 10 days old
     const tenDaysAgo = new Date(Date.now() - 10 * 86400000);
-    const oldName = `worker:todo-old--${tenDaysAgo.toISOString().replace(/[:.]/g, '-')}`;
+    const oldName = `worker-todo-old--${tenDaysAgo.toISOString().replace(/[:.]/g, '-')}`;
     fs.mkdirSync(path.join(trashDir, oldName));
 
     // Create a recent entry (now)
-    const recentName = `worker:todo-new--${new Date().toISOString().replace(/[:.]/g, '-')}`;
+    const recentName = `worker-todo-new--${new Date().toISOString().replace(/[:.]/g, '-')}`;
     fs.mkdirSync(path.join(trashDir, recentName));
 
     const entries = listTrash(7);
@@ -365,7 +363,7 @@ describe('purgeTrash', () => {
     const trashDir = path.join(tmpBase, 'data', 'trash');
     fs.mkdirSync(trashDir, { recursive: true });
 
-    const entryName = `worker:todo-purge--${new Date().toISOString().replace(/[:.]/g, '-')}`;
+    const entryName = `worker-todo-purge--${new Date().toISOString().replace(/[:.]/g, '-')}`;
     const entryPath = path.join(trashDir, entryName);
     fs.mkdirSync(entryPath);
     fs.writeFileSync(path.join(entryPath, 'test.txt'), 'data');

@@ -1,4 +1,12 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  beforeEach,
+  afterAll,
+  vi,
+} from 'vitest';
 import http from 'http';
 import type { AddressInfo } from 'net';
 
@@ -119,6 +127,7 @@ vi.mock('./db.js', () => ({
   getAllChats: vi.fn(() => [...mockChats]),
   getMessagesSince: vi.fn(() => [...mockMessages]),
   storeMessage: (...args: unknown[]) => mockStoreMessage(...args),
+  storeChatMetadata: vi.fn(),
   getTaskById: (...args: unknown[]) => mockGetTaskById(...args),
 }));
 
@@ -128,9 +137,10 @@ vi.mock('./worker.js', () => ({
   createWorker: (...args: unknown[]) => mockCreateWorker(...args),
   destroyWorker: (...args: unknown[]) => mockDestroyWorker(...args),
   workerJid: (id: string) => `worker:todo-${id}@nanoclaw`,
-  workerFolder: (id: string) => `worker:todo-${id}`,
-  isWorkerJid: (jid: string) => jid.startsWith('worker:todo-') && jid.endsWith('@nanoclaw'),
-  isTodoWorkerFolder: (folder: string) => folder.startsWith('worker:todo-'),
+  workerFolder: (id: string) => `worker-todo-${id}`,
+  isWorkerJid: (jid: string) =>
+    jid.startsWith('worker:todo-') && jid.endsWith('@nanoclaw'),
+  isTodoWorkerFolder: (folder: string) => folder.startsWith('worker-todo-'),
 }));
 
 vi.mock('fs', async (importOriginal) => {
@@ -626,7 +636,7 @@ describe('API server', () => {
     it('creates worker and returns JID', async () => {
       mockCreateWorker.mockReturnValue({
         name: 'Worker: Test task',
-        folder: 'worker:todo-abc123',
+        folder: 'worker-todo-abc123',
         trigger: '@Sky',
         added_at: '2026-04-05T00:00:00Z',
         requiresTrigger: false,
@@ -641,7 +651,7 @@ describe('API server', () => {
       const body = JSON.parse(res.body);
       expect(body.ok).toBe(true);
       expect(body.workerJid).toBe('worker:todo-abc123@nanoclaw');
-      expect(body.workerFolder).toBe('worker:todo-abc123');
+      expect(body.workerFolder).toBe('worker-todo-abc123');
       expect(mockCreateWorker).toHaveBeenCalledWith(
         expect.objectContaining({
           todoId: 'abc123',

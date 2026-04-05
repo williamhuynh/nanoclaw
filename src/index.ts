@@ -787,8 +787,12 @@ async function main(): Promise<void> {
   const apiServer = await startApiServer(API_PORT, API_HOST || PROXY_BIND_HOST);
 
   setWorkerCallbacks(
-    (jid, group) => { registeredGroups[jid] = group; },
-    (jid) => { delete registeredGroups[jid]; },
+    (jid, group) => {
+      registeredGroups[jid] = group;
+    },
+    (jid) => {
+      delete registeredGroups[jid];
+    },
   );
 
   // Graceful shutdown handlers

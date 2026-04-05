@@ -55,7 +55,7 @@ vi.mock('./mount-security.js', () => ({
 
 // Mock worker
 vi.mock('./worker.js', () => ({
-  isTodoWorkerFolder: (folder: string) => folder.startsWith('worker:todo-'),
+  isTodoWorkerFolder: (folder: string) => folder.startsWith('worker-todo-'),
 }));
 
 // Mock container-runtime

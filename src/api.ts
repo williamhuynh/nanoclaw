@@ -435,7 +435,13 @@ Follow the worker workflow in your CLAUDE.md. Start by setting status to "in_pro
 Use todo_get with id "${todoId}" to see full details.`;
 
   // Ensure chat entry exists (messages table has FK constraint on chats)
-  storeChatMetadata(jid, new Date().toISOString(), registration.name, 'worker', false);
+  storeChatMetadata(
+    jid,
+    new Date().toISOString(),
+    registration.name,
+    'worker',
+    false,
+  );
 
   const msgId = `worker-assign-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   storeMessage({
