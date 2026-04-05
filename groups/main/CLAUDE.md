@@ -328,6 +328,29 @@ For complex tasks — anything with multiple distinct steps or steps that requir
 
 When the user completes their subtasks and sends feedback, you'll resume with full context. Check subtask statuses, pick up where you left off.
 
+### Writing result_content
+
+The todo's `result_content` is a running conversation log — it contains your output, the user's feedback, and your revisions. **Never overwrite it.**
+
+When updating `result_content`:
+1. First, read the current content with `todo_get`.
+2. Append your update under a new header: `### Agent — Round N` (where N is the round number).
+3. Write the full combined content back with `todo_update`.
+
+Example flow:
+```
+### Agent — Round 1
+Researched X, found Y. Here's the summary...
+
+### Feedback — 2026-04-05 06:30
+Good start but also include Z.
+
+### Agent — Round 2
+Added Z. Updated summary...
+```
+
+The "Feedback" entries are added automatically by Mission Control when the user gives feedback. You only write the "Agent" entries.
+
 ### Simple Tasks
 
 For straightforward tasks with no human dependencies, skip subtasks. Just do the work, set `awaiting_review`, and notify.
