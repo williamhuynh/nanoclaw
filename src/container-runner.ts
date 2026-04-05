@@ -110,11 +110,31 @@ export function buildVolumeMounts(
       readonly: false,
     });
 
-    // ToME mental model directory (external repo, read-write)
+    // Global memory directory (read-only — shared context across all agents)
+    const globalDir = path.join(GROUPS_DIR, 'global');
+    if (fs.existsSync(globalDir)) {
+      mounts.push({
+        hostPath: globalDir,
+        containerPath: '/workspace/global',
+        readonly: true,
+      });
+    }
+
+    // ToME mental model directory (external repo, read-write overlay)
     if (fs.existsSync(TOME_DIR)) {
       mounts.push({
         hostPath: TOME_DIR,
         containerPath: '/workspace/global/tome',
+        readonly: false,
+      });
+    }
+
+    // Global wiki directory (read-write overlay)
+    const globalWikiDir = path.join(GROUPS_DIR, 'global', 'wiki');
+    if (fs.existsSync(globalWikiDir)) {
+      mounts.push({
+        hostPath: globalWikiDir,
+        containerPath: '/workspace/global/wiki',
         readonly: false,
       });
     }
