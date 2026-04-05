@@ -158,15 +158,11 @@ function createSchema(database: Database.Database): void {
 
   // Add reply context columns if they don't exist (migration for existing DBs)
   try {
-    database.exec(
-      `ALTER TABLE messages ADD COLUMN reply_to_message_id TEXT`,
-    );
+    database.exec(`ALTER TABLE messages ADD COLUMN reply_to_message_id TEXT`);
     database.exec(
       `ALTER TABLE messages ADD COLUMN reply_to_message_content TEXT`,
     );
-    database.exec(
-      `ALTER TABLE messages ADD COLUMN reply_to_sender_name TEXT`,
-    );
+    database.exec(`ALTER TABLE messages ADD COLUMN reply_to_sender_name TEXT`);
   } catch {
     /* columns already exist */
   }
@@ -664,6 +660,10 @@ export function setRegisteredGroup(jid: string, group: RegisteredGroup): void {
     group.requiresTrigger === undefined ? 1 : group.requiresTrigger ? 1 : 0,
     group.isMain ? 1 : 0,
   );
+}
+
+export function deleteRegisteredGroup(jid: string): void {
+  db.prepare('DELETE FROM registered_groups WHERE jid = ?').run(jid);
 }
 
 export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {

@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   _initTestDatabase,
   createTask,
+  deleteRegisteredGroup,
   deleteSession,
   deleteTask,
   getAllChats,
@@ -657,6 +658,27 @@ describe('registered group isMain', () => {
     const group = groups['group@g.us'];
     expect(group).toBeDefined();
     expect(group.isMain).toBeUndefined();
+  });
+});
+
+// --- deleteRegisteredGroup ---
+
+describe('deleteRegisteredGroup', () => {
+  it('deleteRegisteredGroup removes the group', () => {
+    setRegisteredGroup('worker:todo-test@nanoclaw', {
+      name: 'Test Worker',
+      folder: 'worker_todo-test',
+      trigger: '@Sky',
+      added_at: new Date().toISOString(),
+    });
+
+    const before = getAllRegisteredGroups();
+    expect(before['worker:todo-test@nanoclaw']).toBeDefined();
+
+    deleteRegisteredGroup('worker:todo-test@nanoclaw');
+
+    const after = getAllRegisteredGroups();
+    expect(after['worker:todo-test@nanoclaw']).toBeUndefined();
   });
 });
 
