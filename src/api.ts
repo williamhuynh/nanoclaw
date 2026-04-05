@@ -24,6 +24,7 @@ import {
   getAllTasks,
   getMessagesSince,
   storeMessage,
+  storeChatMetadata,
   getTaskById,
 } from './db.js';
 import { isValidGroupFolder } from './group-folder.js';
@@ -35,7 +36,8 @@ import { RegisteredGroup } from './types.js';
 // Worker callbacks (wired from index.ts to keep in-memory state in sync)
 // ---------------------------------------------------------------------------
 
-let onWorkerCreatedFn: ((jid: string, group: RegisteredGroup) => void) | null = null;
+let onWorkerCreatedFn: ((jid: string, group: RegisteredGroup) => void) | null =
+  null;
 let onWorkerDestroyedFn: ((jid: string) => void) | null = null;
 
 export function setWorkerCallbacks(
@@ -432,6 +434,9 @@ Follow the worker workflow in your CLAUDE.md. Start by setting status to "in_pro
 
 Use todo_get with id "${todoId}" to see full details.`;
 
+  // Ensure chat entry exists (messages table has FK constraint on chats)
+  storeChatMetadata(jid, new Date().toISOString(), registration.name, 'worker', false);
+
   const msgId = `worker-assign-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   storeMessage({
     id: msgId,
@@ -446,7 +451,12 @@ Use todo_get with id "${todoId}" to see full details.`;
 
   const folder = registration.folder;
 
-  json(res, 201, { ok: true, workerJid: jid, workerFolder: folder, messageId: msgId });
+  json(res, 201, {
+    ok: true,
+    workerJid: jid,
+    workerFolder: folder,
+    messageId: msgId,
+  });
 }
 
 async function handleDeleteWorker(
