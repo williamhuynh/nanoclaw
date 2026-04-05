@@ -34,12 +34,14 @@ vi.mock('./group-folder.js', () => ({
   isValidGroupFolder: vi.fn(() => true),
   resolveGroupFolderPath: (folder: string) => {
     const _path = require('path');
-    const _groupsDir = (globalThis as Record<string, unknown>).__WI_GROUPS_DIR as string;
+    const _groupsDir = (globalThis as Record<string, unknown>)
+      .__WI_GROUPS_DIR as string;
     return _path.join(_groupsDir, folder);
   },
   resolveGroupIpcPath: (folder: string) => {
     const _path = require('path');
-    const _dataDir = (globalThis as Record<string, unknown>).__WI_DATA_DIR as string;
+    const _dataDir = (globalThis as Record<string, unknown>)
+      .__WI_DATA_DIR as string;
     return _path.join(_dataDir, 'ipc', folder);
   },
 }));
@@ -49,7 +51,8 @@ vi.mock('./group-folder.js', () => ({
 // ---------------------------------------------------------------------------
 
 const mockMessages: Array<Record<string, unknown>> = [];
-const mockGroups: Record<string, Record<string, unknown>> = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockGroups: Record<string, any> = {
   'main@nanoclaw': {
     name: 'Main',
     folder: 'main',
