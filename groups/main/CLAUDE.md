@@ -303,6 +303,16 @@ Use the `mcp__nanoclaw__delegate` tool to delegate. It takes a `target_group` (f
 
 If no specialist matches, then do the work yourself. When delegating, include everything the specialist needs in the prompt — they have no access to your conversation history.
 
+### Knowledge Routing
+
+Before delegating to a specialist, check the global wiki:
+
+1. **Check `/workspace/global/wiki/index.md`** — if a relevant page exists and answers the question, respond directly without delegating.
+2. **Check `/workspace/global/wiki/registry.md`** — if the question might be answered by a specialist's project wiki, find which agent covers that topic (by matching topics in their registry entry), then delegate to that agent.
+3. If neither source has the answer, fall back to the known specialists list below or do the work yourself.
+
+This keeps unnecessary delegations to a minimum — delegate only when the registry points to a specialist or when no other route works.
+
 ### Known Specialists
 
 Check `/workspace/ipc/available_agents.json` for the full list. Key agents:

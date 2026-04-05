@@ -146,6 +146,17 @@ export function buildVolumeMounts(
         readonly: false,
       });
     }
+
+    // Global wiki directory (read-write overlay for non-main agents)
+    // Agents can update the knowledge registry and promote content to global wiki.
+    const globalWikiDir = path.join(GROUPS_DIR, 'global', 'wiki');
+    if (fs.existsSync(globalWikiDir)) {
+      mounts.push({
+        hostPath: globalWikiDir,
+        containerPath: '/workspace/global/wiki',
+        readonly: false,
+      });
+    }
   }
 
   // Mission Control app source (read-write for self-editing via embedded agent)
