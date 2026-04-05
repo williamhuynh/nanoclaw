@@ -17,7 +17,7 @@ import {
   POLL_INTERVAL,
   TIMEZONE,
 } from './config.js';
-import { startApiServer } from './api.js';
+import { setWorkerCallbacks, startApiServer } from './api.js';
 import { startCredentialProxy } from './credential-proxy.js';
 import './channels/index.js';
 import {
@@ -557,7 +557,8 @@ async function startMessageLoop(): Promise<void> {
 
           const isMainGroup = group.isMain === true;
           const isWorker = isWorkerJid(chatJid);
-          const needsTrigger = !isMainGroup && !isWorker && group.requiresTrigger !== false;
+          const needsTrigger =
+            !isMainGroup && !isWorker && group.requiresTrigger !== false;
 
           // For non-main groups, only act on trigger messages.
           // Non-trigger messages accumulate in DB and get pulled as
@@ -599,7 +600,10 @@ async function startMessageLoop(): Promise<void> {
               channel
                 .setTyping?.(chatJid, true)
                 ?.catch((err) =>
-                  logger.warn({ chatJid, err }, 'Failed to set typing indicator'),
+                  logger.warn(
+                    { chatJid, err },
+                    'Failed to set typing indicator',
+                  ),
                 );
             }
           } else {
@@ -781,6 +785,11 @@ async function main(): Promise<void> {
 
   // Start external API server (bind to same host as credential proxy so containers can reach it)
   const apiServer = await startApiServer(API_PORT, API_HOST || PROXY_BIND_HOST);
+
+  setWorkerCallbacks(
+    (jid, group) => { registeredGroups[jid] = group; },
+    (jid) => { delete registeredGroups[jid]; },
+  );
 
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {

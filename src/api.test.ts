@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import http from 'http';
 import type { AddressInfo } from 'net';
 
@@ -122,6 +122,17 @@ vi.mock('./db.js', () => ({
   getTaskById: (...args: unknown[]) => mockGetTaskById(...args),
 }));
 
+const mockCreateWorker = vi.fn();
+const mockDestroyWorker = vi.fn();
+vi.mock('./worker.js', () => ({
+  createWorker: (...args: unknown[]) => mockCreateWorker(...args),
+  destroyWorker: (...args: unknown[]) => mockDestroyWorker(...args),
+  workerJid: (id: string) => `worker:todo-${id}@nanoclaw`,
+  workerFolder: (id: string) => `worker:todo-${id}`,
+  isWorkerJid: (jid: string) => jid.startsWith('worker:todo-') && jid.endsWith('@nanoclaw'),
+  isTodoWorkerFolder: (folder: string) => folder.startsWith('worker:todo-'),
+}));
+
 vi.mock('fs', async (importOriginal) => {
   const actual = (await importOriginal()) as typeof import('fs');
   return {
@@ -211,6 +222,14 @@ function authedPatch(port: number, path: string, data: unknown) {
   );
 }
 
+function authedDelete(port: number, path: string) {
+  return makeRequest(port, {
+    method: 'DELETE',
+    path,
+    headers: { authorization: 'Bearer test-key-123' },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -228,6 +247,12 @@ describe('API server', () => {
 
   afterAll(async () => {
     await new Promise<void>((r) => server.close(() => r()));
+  });
+
+  beforeEach(() => {
+    mockCreateWorker.mockReset();
+    mockDestroyWorker.mockReset();
+    mockStoreMessage.mockReset();
   });
 
   // -----------------------------------------------------------------------
@@ -591,6 +616,63 @@ describe('API server', () => {
         path: '/api/todos',
       });
       expect(res.statusCode).toBe(401);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // POST /api/workers
+  // -----------------------------------------------------------------------
+  describe('POST /api/workers', () => {
+    it('creates worker and returns JID', async () => {
+      mockCreateWorker.mockReturnValue({
+        name: 'Worker: Test task',
+        folder: 'worker:todo-abc123',
+        trigger: '@Sky',
+        added_at: '2026-04-05T00:00:00Z',
+        requiresTrigger: false,
+      });
+
+      const res = await authedPost(port, '/api/workers', {
+        todoId: 'abc123',
+        title: 'Test task',
+        description: 'Do something',
+      });
+      expect(res.statusCode).toBe(201);
+      const body = JSON.parse(res.body);
+      expect(body.ok).toBe(true);
+      expect(body.workerJid).toBe('worker:todo-abc123@nanoclaw');
+      expect(body.workerFolder).toBe('worker:todo-abc123');
+      expect(mockCreateWorker).toHaveBeenCalledWith(
+        expect.objectContaining({
+          todoId: 'abc123',
+          title: 'Test task',
+          description: 'Do something',
+        }),
+      );
+    });
+
+    it('returns 400 if todoId missing', async () => {
+      const res = await authedPost(port, '/api/workers', { title: 'No ID' });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('returns 400 if title missing', async () => {
+      const res = await authedPost(port, '/api/workers', { todoId: 'abc' });
+      expect(res.statusCode).toBe(400);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // DELETE /api/workers/:todoId
+  // -----------------------------------------------------------------------
+  describe('DELETE /api/workers/:todoId', () => {
+    it('destroys worker and returns ok', async () => {
+      const res = await authedDelete(port, '/api/workers/abc123');
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.ok).toBe(true);
+      expect(body.todoId).toBe('abc123');
+      expect(mockDestroyWorker).toHaveBeenCalledWith('abc123');
     });
   });
 

@@ -28,6 +28,23 @@ import {
 } from './db.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
+import { createWorker, destroyWorker, workerJid } from './worker.js';
+import { RegisteredGroup } from './types.js';
+
+// ---------------------------------------------------------------------------
+// Worker callbacks (wired from index.ts to keep in-memory state in sync)
+// ---------------------------------------------------------------------------
+
+let onWorkerCreatedFn: ((jid: string, group: RegisteredGroup) => void) | null = null;
+let onWorkerDestroyedFn: ((jid: string) => void) | null = null;
+
+export function setWorkerCallbacks(
+  onCreate: (jid: string, group: RegisteredGroup) => void,
+  onDestroy: (jid: string) => void,
+): void {
+  onWorkerCreatedFn = onCreate;
+  onWorkerDestroyedFn = onDestroy;
+}
 
 // ---------------------------------------------------------------------------
 // Auth
@@ -369,6 +386,81 @@ async function handlePostInject(
 }
 
 // ---------------------------------------------------------------------------
+// Worker endpoints
+// ---------------------------------------------------------------------------
+
+async function handlePostWorker(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
+  const body = JSON.parse(await readBody(req));
+  const { todoId, title, description } = body as {
+    todoId?: string;
+    title?: string;
+    description?: string;
+  };
+  if (!todoId || !title) {
+    json(res, 400, { error: 'todoId and title are required' });
+    return;
+  }
+
+  const groups = getAllRegisteredGroups();
+  const mainGroup = Object.values(groups).find((g) => g.isMain);
+  if (!mainGroup) {
+    json(res, 500, { error: 'No main group configured' });
+    return;
+  }
+
+  const registration = await createWorker({
+    todoId,
+    title,
+    description,
+    mainGroupFolder: mainGroup.folder,
+  });
+
+  const jid = workerJid(todoId);
+  if (onWorkerCreatedFn) onWorkerCreatedFn(jid, registration);
+
+  // Inject assignment message into the worker's JID
+  const descLine = description ? `\nDescription: ${description}` : '';
+  const assignmentText = `@Sky You've been assigned a todo.
+
+Title: "${title}"${descLine}
+Todo ID: ${todoId}
+
+Follow the worker workflow in your CLAUDE.md. Start by setting status to "in_progress", then do the work, then set status to "awaiting_review" with your output in result_content.
+
+Use todo_get with id "${todoId}" to see full details.`;
+
+  const msgId = `worker-assign-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  storeMessage({
+    id: msgId,
+    chat_jid: jid,
+    sender: 'system',
+    sender_name: 'System',
+    content: assignmentText,
+    timestamp: new Date().toISOString(),
+    is_from_me: false,
+    is_bot_message: false,
+  });
+
+  const folder = registration.folder;
+
+  json(res, 201, { ok: true, workerJid: jid, workerFolder: folder, messageId: msgId });
+}
+
+async function handleDeleteWorker(
+  _req: IncomingMessage,
+  res: ServerResponse,
+  todoId: string,
+): Promise<void> {
+  const jid = workerJid(todoId);
+  if (onWorkerDestroyedFn) onWorkerDestroyedFn(jid);
+  await destroyWorker(todoId);
+  json(res, 200, { ok: true, todoId });
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
@@ -468,6 +560,19 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   // POST /api/delegate
   if (method === 'POST' && urlPath === '/api/delegate') {
     await handlePostDelegate(req, res);
+    return;
+  }
+
+  // POST /api/workers
+  if (method === 'POST' && urlPath === '/api/workers') {
+    await handlePostWorker(req, res);
+    return;
+  }
+
+  // DELETE /api/workers/:todoId
+  const workerMatch = urlPath.match(/^\/api\/workers\/([^/]+)$/);
+  if (workerMatch && method === 'DELETE') {
+    await handleDeleteWorker(req, res, decodeURIComponent(workerMatch[1]));
     return;
   }
 
