@@ -81,6 +81,10 @@ vi.mock('./mount-security.js', () => ({
   validateAdditionalMounts: vi.fn(() => []),
 }));
 
+vi.mock('./worker.js', () => ({
+  isTodoWorkerFolder: (folder: string) => folder.startsWith('worker:todo-'),
+}));
+
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs');
   return {
@@ -456,5 +460,63 @@ describe('Session dir', () => {
 
     const written = JSON.parse(settingsCall![1] as string);
     expect(written.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS).toBe('1');
+  });
+});
+
+// ===========================================================================
+// Todo worker mounts
+// ===========================================================================
+
+describe('todo worker mounts', () => {
+  it('todo worker gets Sky-level mounts (project root, store, ToME)', () => {
+    mockExistingPaths([TOME_DIR]);
+
+    const group: RegisteredGroup = {
+      name: 'Worker: test task',
+      folder: 'worker:todo-abc',
+      trigger: '@Sky',
+      added_at: '2026-01-01',
+      requiresTrigger: false,
+    };
+
+    const mounts = buildVolumeMounts(group, false);
+
+    // Should have project root (read-only) like main
+    const projectMount = findMount(mounts, '/workspace/project');
+    expect(projectMount).toBeDefined();
+    expect(projectMount!.readonly).toBe(true);
+
+    // Should have store access
+    const storeMount = findMount(mounts, '/workspace/project/store');
+    expect(storeMount).toBeDefined();
+    expect(storeMount!.readonly).toBe(false);
+
+    // Should have its own group folder (not main's)
+    const groupMount = findMount(mounts, '/workspace/group');
+    expect(groupMount).toBeDefined();
+    expect(groupMount!.hostPath).toContain('worker:todo-abc');
+
+    // Should have ToME
+    const tomeMount = findMount(mounts, '/workspace/global/tome');
+    expect(tomeMount).toBeDefined();
+  });
+
+  it('regular non-main group does NOT get project root or store', () => {
+    mockExistingPaths([]);
+
+    const group: RegisteredGroup = {
+      name: 'Family Chat',
+      folder: 'whatsapp_family',
+      trigger: '@Sky',
+      added_at: '2026-01-01',
+    };
+
+    const mounts = buildVolumeMounts(group, false);
+
+    const projectMount = findMount(mounts, '/workspace/project');
+    expect(projectMount).toBeUndefined();
+
+    const storeMount = findMount(mounts, '/workspace/project/store');
+    expect(storeMount).toBeUndefined();
   });
 });

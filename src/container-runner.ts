@@ -30,6 +30,7 @@ import { detectAuthMode } from './credential-proxy.js';
 import { emitEvent } from './events.js';
 import { validateAdditionalMounts } from './mount-security.js';
 import { RegisteredGroup } from './types.js';
+import { isTodoWorkerFolder } from './worker.js';
 
 // Sentinel markers for robust output parsing (must match agent-runner)
 const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
@@ -68,9 +69,10 @@ export function buildVolumeMounts(
   const mounts: VolumeMount[] = [];
   const projectRoot = process.cwd();
   const groupDir = resolveGroupFolderPath(group.folder);
+  const isTodoWorker = isTodoWorkerFolder(group.folder);
 
-  if (isMain) {
-    // Main gets the project root read-only. Writable paths the agent needs
+  if (isMain || isTodoWorker) {
+    // Main and todo workers get the project root read-only. Writable paths the agent needs
     // (store, group folder, IPC, .claude/) are mounted separately below.
     // Read-only prevents the agent from modifying host application code
     // (src/, dist/, package.json, etc.) which would bypass the sandbox
