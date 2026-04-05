@@ -53,6 +53,11 @@ vi.mock('./mount-security.js', () => ({
   validateAdditionalMounts: vi.fn(() => []),
 }));
 
+// Mock worker
+vi.mock('./worker.js', () => ({
+  isTodoWorkerFolder: (folder: string) => folder.startsWith('worker:todo-'),
+}));
+
 // Mock container-runtime
 vi.mock('./container-runtime.js', () => ({
   CONTAINER_RUNTIME_BIN: 'docker',

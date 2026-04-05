@@ -2,7 +2,6 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-
 import {
   API_HOST,
   API_PORT,
@@ -74,6 +73,7 @@ import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
 import { emitEvent } from './events.js';
 import { logger } from './logger.js';
+import { isWorkerJid } from './worker.js';
 import {
   searchNewEmails,
   sendEmailReply,
@@ -94,7 +94,6 @@ let messageLoopRunning = false;
 
 const channels: Channel[] = [];
 const queue = new GroupQueue();
-
 
 function loadState(): void {
   lastTimestamp = getRouterState('last_timestamp') || '';
@@ -206,8 +205,9 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   const group = registeredGroups[chatJid];
   if (!group) return true;
 
+  const isWorker = isWorkerJid(chatJid);
   const channel = findChannel(channels, chatJid);
-  if (!channel) {
+  if (!channel && !isWorker) {
     logger.warn({ chatJid }, 'No channel owns JID, skipping messages');
     return true;
   }
@@ -223,8 +223,8 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
 
   if (missedMessages.length === 0) return true;
 
-  // For non-main groups, check if trigger is required and present
-  if (!isMainGroup && group.requiresTrigger !== false) {
+  // Workers have requiresTrigger: false, but skip trigger check entirely for clarity
+  if (!isMainGroup && !isWorker && group.requiresTrigger !== false) {
     const triggerPattern = getTriggerPattern(group.trigger);
     const allowlistCfg = loadSenderAllowlist();
     const hasTrigger = missedMessages.some(
@@ -263,15 +263,17 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     }, IDLE_TIMEOUT);
   };
 
-  // Start typing indicator and keep it alive every 4 seconds
-  await channel.setTyping?.(chatJid, true);
-  const typingInterval = setInterval(() => {
-    channel
-      .setTyping?.(chatJid, true)
-      ?.catch((err) =>
-        logger.warn({ chatJid, err }, 'Failed to refresh typing indicator'),
-      );
-  }, 4000);
+  // Start typing indicator (skip for workers �� no channel)
+  if (channel) await channel.setTyping?.(chatJid, true);
+  const typingInterval = channel
+    ? setInterval(() => {
+        channel
+          .setTyping?.(chatJid, true)
+          ?.catch((err) =>
+            logger.warn({ chatJid, err }, 'Failed to refresh typing indicator'),
+          );
+      }, 4000)
+    : null;
 
   let hadError = false;
   let outputSentToUser = false;
@@ -288,7 +290,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         // Strip <internal>...</internal> blocks — agent uses these for internal reasoning
         const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
         logger.info({ group: group.name }, `Agent output: ${raw.length} chars`);
-        if (text) {
+        if (text && channel) {
           await channel.sendMessage(chatJid, text);
           outputSentToUser = true;
           emitEvent({
@@ -311,9 +313,8 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       }
     });
   } finally {
-    // Always stop typing indicator, even if there's an error
-    clearInterval(typingInterval);
-    await channel.setTyping?.(chatJid, false);
+    if (typingInterval) clearInterval(typingInterval);
+    if (channel) await channel.setTyping?.(chatJid, false);
     if (idleTimer) clearTimeout(idleTimer);
   }
 
@@ -549,13 +550,14 @@ async function startMessageLoop(): Promise<void> {
           if (!group) continue;
 
           const channel = findChannel(channels, chatJid);
-          if (!channel) {
+          if (!channel && !isWorkerJid(chatJid)) {
             logger.warn({ chatJid }, 'No channel owns JID, skipping messages');
             continue;
           }
 
           const isMainGroup = group.isMain === true;
-          const needsTrigger = !isMainGroup && group.requiresTrigger !== false;
+          const isWorker = isWorkerJid(chatJid);
+          const needsTrigger = !isMainGroup && !isWorker && group.requiresTrigger !== false;
 
           // For non-main groups, only act on trigger messages.
           // Non-trigger messages accumulate in DB and get pulled as
@@ -593,11 +595,13 @@ async function startMessageLoop(): Promise<void> {
               messagesToSend[messagesToSend.length - 1].timestamp;
             saveState();
             // Show typing indicator while the container processes the piped message
-            channel
-              .setTyping?.(chatJid, true)
-              ?.catch((err) =>
-                logger.warn({ chatJid, err }, 'Failed to set typing indicator'),
-              );
+            if (channel) {
+              channel
+                .setTyping?.(chatJid, true)
+                ?.catch((err) =>
+                  logger.warn({ chatJid, err }, 'Failed to set typing indicator'),
+                );
+            }
           } else {
             // No active container — enqueue for a new one
             queue.enqueueMessageCheck(chatJid);
