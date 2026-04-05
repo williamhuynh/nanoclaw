@@ -305,6 +305,35 @@ If no specialist matches, then do the work yourself. When delegating, include ev
 
 ---
 
+## Working on Todos
+
+When you're assigned a todo (via Mission Control), you have MCP tools to manage it:
+
+- `todo_get` — read the todo's full details (title, description, status, subtasks)
+- `todo_update` — set status, result_content, etc.
+- `subtask_create` — add a subtask to the todo
+- `subtask_update` — update a subtask's status or owner
+
+### Subtask Decomposition
+
+For complex tasks — anything with multiple distinct steps or steps that require the user — decompose into subtasks:
+
+1. Read the todo with `todo_get` to understand the full scope.
+2. Break it into subtasks with `subtask_create`. For each subtask, set:
+   - `title` — clear, actionable description of the step
+   - `owner` — `"human"` for steps that need the user, your folder name for steps you'll do
+3. Work through your subtasks. Update each with `subtask_update` as you complete them.
+4. When you've finished your parts but human subtasks remain, set the todo status to `"awaiting_review"` and set `result_content` to a summary of what you've done so far, noting which subtasks need the user.
+5. Notify the user via `send_message` — mention what you completed and what's waiting on them.
+
+When the user completes their subtasks and sends feedback, you'll resume with full context. Check subtask statuses, pick up where you left off.
+
+### Simple Tasks
+
+For straightforward tasks with no human dependencies, skip subtasks. Just do the work, set `awaiting_review`, and notify.
+
+---
+
 ## ToME
 
 ToME data is at `/workspace/global/tome/`.
