@@ -204,6 +204,26 @@ Each entry: **what** was changed, **why**, and **which files** were modified.
 
 ---
 
+## Per-group model selection (2026-04-12)
+
+**Problem:** All NanoClaw agents defaulted to Sonnet (the Agent SDK default) even though the host uses OAuth/Max plan which defaults to Opus in the CLI. No way to configure different models for different agents.
+
+**Solution:** Added `model` field to `ContainerConfig`. The container runner passes it as `CLAUDE_MODEL` env var to Docker. The agent-runner reads it and passes it to the SDK `query()` call. Configurable per group via the `container_config` JSON column in `registered_groups`.
+
+**Changes:**
+
+- `src/types.ts`: Added `model?: string` to `ContainerConfig` interface.
+- `src/container-runner.ts`: `buildContainerArgs()` accepts optional `model` param, passes as `-e CLAUDE_MODEL={model}` to Docker. `runContainerAgent()` reads `group.containerConfig?.model` and forwards it.
+- `container/agent-runner/src/index.ts`: Passes `process.env.CLAUDE_MODEL` to SDK `query()` options as `model` field.
+- `src/worker.ts`: Workers created with `containerConfig: { model: 'claude-opus-4-6' }` by default.
+- `store/messages.db`: Set `container_config.model = 'claude-opus-4-6'` for project groups (main, aid-coo, naa-project, homeschoollms-dev, tandemly-dev, mission-control). linkedin-agent left unset (Sonnet default).
+- `MC: src/server/routes/tasks.ts`: Tasks endpoint resolves and returns `resolved_model` from group's container_config.
+- `MC: src/frontend/pages/TasksPage.tsx`: Model badge on each task (Opus purple, Sonnet blue, Haiku green).
+
+**Container image rebuild required** (agent-runner code change).
+
+---
+
 ## Granular agent activity status (2026-04-12)
 
 **Problem:** Mission Control's agent activity dots only showed two states (green=running, gray=idle) based on events. Status could go stale if events were missed (WebSocket reconnect, MC restart). No way to tell if an agent was actively working vs just sitting idle in a container.
