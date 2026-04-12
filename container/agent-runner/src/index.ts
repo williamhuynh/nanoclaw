@@ -496,9 +496,11 @@ async function runQuery(
         'Skill',
         'NotebookEdit',
         'mcp__nanoclaw__*',
-        'mcp__gmail__*'
+        'mcp__gmail__*',
+        'mcp__gcalendar__*'
       ],
       env: sdkEnv,
+      model: process.env.CLAUDE_MODEL || undefined,
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       settingSources: ['project', 'user'],
@@ -515,6 +517,14 @@ async function runQuery(
         gmail: {
           command: 'gmail-mcp',
           args: [],
+        },
+        gcalendar: {
+          command: 'google-calendar-mcp',
+          args: [],
+          env: {
+            GOOGLE_CALENDAR_MCP_TOKEN_PATH: '/home/node/.google-calendar-mcp/tokens.json',
+            GOOGLE_OAUTH_CREDENTIALS: '/home/node/.google-calendar-mcp/gcp-oauth.keys.json',
+          },
         },
       },
       hooks: {

@@ -203,6 +203,16 @@ export function buildVolumeMounts(
     });
   }
 
+  // Google Calendar credentials directory
+  const calendarDir = path.join(process.env.HOME || '/root', '.google-calendar-mcp');
+  if (fs.existsSync(calendarDir)) {
+    mounts.push({
+      hostPath: calendarDir,
+      containerPath: '/home/node/.google-calendar-mcp',
+      readonly: false, // MCP may need to refresh tokens
+    });
+  }
+
   // SSH keys (read-only) — enables git push from containers (e.g. ToME auto-sync)
   const sshDir = path.join(process.env.HOME || '/root', '.ssh');
   if (fs.existsSync(sshDir)) {
@@ -337,11 +347,17 @@ export async function buildContainerArgs(
   mounts: VolumeMount[],
   containerName: string,
   agentIdentifier?: string,
+  model?: string,
 ): Promise<string[]> {
   const args: string[] = ['run', '-i', '--rm', '--name', containerName];
 
   // Pass host timezone so container's local time matches the user's
   args.push('-e', `TZ=${TIMEZONE}`);
+
+  // Per-group model override (e.g. 'claude-opus-4-6')
+  if (model) {
+    args.push('-e', `CLAUDE_MODEL=${model}`);
+  }
 
   // Route API traffic through the credential proxy (containers never see real secrets)
   args.push(
@@ -411,6 +427,7 @@ export async function runContainerAgent(
     mounts,
     containerName,
     agentIdentifier,
+    group.containerConfig?.model,
   );
 
   logger.debug(

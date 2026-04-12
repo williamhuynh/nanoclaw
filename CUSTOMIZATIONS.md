@@ -8,6 +8,33 @@ Each entry: **what** was changed, **why**, and **which files** were modified.
 
 ---
 
+## Self-service project agent bootstrapping (2026-04-07)
+
+**Purpose:** Let Sky (main) bootstrap new persistent project/specialist agents (like `aid-coo`, `naa-project`) end-to-end from a chat, without needing a host Claude Code session for the mechanical `cp` + DB insert + restart work.
+
+**Problem:** The existing `register_group` IPC tool handles DB registration, but the agent's folder (`groups/{folder}/`) is not mounted into Sky's container — Sky cannot `cp` a populated staging folder into a sibling group directory. Every new project agent therefore required a host session to copy the folder, then a systemctl restart (because out-of-process DB writes don't update the running nanoclaw's in-memory state).
+
+**Solution:** New `promote_staged_agent` IPC tool. Sky creates/populates a staging folder inside its own workspace (`/workspace/group/{staging-name}/`), then calls the tool. The host validates the staging path (must be inside main's group directory, no traversal), validates the target folder name and ensures it doesn't exist, copies staging → target, and calls the existing in-process `registerGroup()` — which updates DB + in-memory state live. No restart needed.
+
+**Security:**
+- Main-only (same gate as `register_group`, `delegate`, `refresh_groups`)
+- Staging path is resolved against main's group directory and containment-checked via `path.relative` — no arbitrary filesystem access
+- Target folder validated via `isValidGroupFolder` (same rules as all group folders)
+- Target must not already exist (no overwrite)
+- JID must not already be registered (no takeover)
+- `isMain` is forced to `undefined` — new agents cannot be registered as main via IPC
+- On copy failure, partial copies are cleaned up (best-effort)
+
+**Changes:**
+
+- `src/ipc.ts`: Added `promote_staged_agent` case to `processTaskIpc` dispatch. Added `stagingFolder` field to the data type. Reuses `deps.registerGroup` for DB + in-memory registration.
+- `container/agent-runner/src/ipc-mcp-stdio.ts`: Added `promote_staged_agent` MCP tool mirroring the `register_group` pattern (writes IPC task file, returns ack).
+- `groups/main/CLAUDE.md`: Added "Creating a Project/Specialist Agent" section documenting the staging pattern and tool usage.
+
+**Not covered (stays host-only):** changes to `src/`, skill code, container rebuilds, OneCLI config, systemd service. These can bypass the sandbox on restart so they require host access.
+
+---
+
 ## Session auto-reset on "Prompt is too long" (2026-03-08)
 
 **Problem:** Long coding sessions accumulate messages in the Claude Code session file. Even with compaction, the prompt eventually exceeds the context limit. Once stuck, every retry resumes the bloated session — infinite failure loop.
@@ -174,3 +201,45 @@ Each entry: **what** was changed, **why**, and **which files** were modified.
 - Soft-delete to `data/trash/` on completion. Weekly HITL cleanup prompt (no auto-purge).
 - CLAUDE.md generated once at assignment time. Session context carries through feedback rounds.
 - Path safety checks in `destroyWorker` prevent accidental deletion of non-worker folders.
+
+---
+
+## Granular agent activity status (2026-04-12)
+
+**Problem:** Mission Control's agent activity dots only showed two states (green=running, gray=idle) based on events. Status could go stale if events were missed (WebSocket reconnect, MC restart). No way to tell if an agent was actively working vs just sitting idle in a container.
+
+**Solution:** Five-state activity indicator with Docker reconciliation.
+
+**States:**
+- Green: actively working (container_started, no idle yet)
+- Blue: alive but idle/waiting (container_idle event received, or delegation completed)
+- Amber: possibly stuck (running >10 min without producing output or going idle)
+- Gray: not running (container_completed or no container)
+- Blue (delegating variant): delegating to another agent
+
+**Changes:**
+
+- `src/index.ts`: Emit `container_idle` event after agent sends its response and idle timer starts.
+- `MC: src/frontend/hooks/useEventsWebSocket.ts`: Added `waiting` and `stuck` status values. Added `lastStarted` timestamp tracking. New `reconcileStatuses()` function that polls `/api/dashboard/containers` (Docker state) to correct stale event-driven statuses.
+- `MC: src/frontend/pages/DashboardPage.tsx`: Five-color status dots with title tooltips. Refresh button next to "Agent Activity" header that calls `reconcileStatuses()` to sync with Docker reality.
+
+---
+
+## Session lifecycle redesign — time-bounded sessions (2026-04-12)
+
+**Problem:** Sessions grow unboundedly. Each group has one persistent session that accumulates every interaction across days/weeks, causing escalating API costs from loading large contexts. The tandemly-dev session reached 8.1MB (100k+ cache tokens per invocation). Short conversations that don't trigger SDK auto-compaction are never archived, creating gaps in the wiki extraction pipeline.
+
+**Solution:** Time-bounded sessions with archive-before-discard. At container spin-up, if the session file is older than `SESSION_MAX_AGE_MS` (default 2 hours, configurable via env var), archive it to `conversations/` as markdown and start fresh. Also switched all scheduled tasks to `context_mode: isolated` — recurring tasks have no need for accumulated session history.
+
+**Changes:**
+
+- `src/config.ts`: Added `SESSION_MAX_AGE_MS` export (default 2h, override via env var).
+- `src/index.ts`: Added `archiveSession()` helper — reads session JSONL, extracts user/assistant text, writes markdown to `groups/{folder}/conversations/{date}-session-{time}.md`. Skips trivial sessions (< 5 messages). Added time-based session age check in `runAgent()`, right after the existing 2MB size check. If session expired, archives and clears it.
+- `store/messages.db`: All active scheduled tasks switched to `context_mode: 'isolated'` (8 tasks changed: 6 main-group LinkedIn/news tasks + 2 PR check tasks changed earlier).
+
+**Design doc:** `docs/plans/2026-04-12-session-lifecycle-redesign.md`
+
+**Why two extraction sources (wiki vs tome) is intentional:**
+- Wiki extraction reads `conversations/*.md` — full transcripts including agent reasoning and tool usage. Rich format needed for entity/finding/decision extraction.
+- Tome-observe reads `messages` DB — raw user messages always complete, real-time, queryable. Right for learning signals about user preferences and corrections.
+- `conversations/` is now complete thanks to archive-on-reset (previously only populated by SDK auto-compaction).

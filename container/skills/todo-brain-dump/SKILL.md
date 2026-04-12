@@ -13,11 +13,12 @@ When you receive a message from the todo page (via the chat interface), parse it
 
 2. **For each item, infer:**
    - **title**: concise action phrase starting with a verb (e.g. "Follow up with James about the contract")
+   - **description**: preserve the user's original wording and all relevant context for this item. Include any names, numbers, links, background reasoning, or details the user mentioned — do NOT summarise or compress. If the user wrote one sentence, use it verbatim. If the item came from a longer paragraph, copy the relevant portion and add any implicit context that makes the todo self-contained.
    - **horizon**: `today` if urgent or time-sensitive, `this_week` if should do soon, `soon` if no rush, `none` if unclear
    - **context**: `work` (professional), `personal` (projects/goals/hobbies), `admin` (life logistics — appointments, bills, errands)
    - **owner**: `human` by default. If the user says "Sky do X", "agent do X", or "you do X", set owner to `main`
 
-3. **Create each todo** using the `todo_create` MCP tool with `source: "brain_dump"`
+3. **Create each todo** using the `todo_create` MCP tool with `source: "brain_dump"`, passing both `title` and `description`
 
 4. **If anything is ambiguous**, ask the user for clarification in the chat before creating. Don't guess on important details.
 
@@ -25,6 +26,7 @@ When you receive a message from the todo page (via the chat interface), parse it
 
 ## Guidelines
 
+- Put the detail in the description, not the title — the description is where context lives
 - Keep titles short and actionable — start with a verb
 - Default horizon to `soon` if no urgency cues
 - Default context to `work` if ambiguous between work and personal

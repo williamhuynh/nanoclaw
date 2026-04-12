@@ -1,25 +1,41 @@
-# Wiki Schema — Global (The OC)
+# Wiki Schema — Global (Will Huynh / The OC)
 
-*Sky-maintained. Cross-project reusable knowledge only. No client-identifying information.*
+*Sky-maintained. Cross-cutting knowledge shared across all agents.*
 
 ---
 
 ## Purpose
 
-This wiki captures knowledge that is reusable across engagements:
-- Frameworks and methodologies used in AI governance consulting
-- Patterns observed across multiple clients (anonymized)
-- Domain knowledge: regulatory landscape, vendor landscape, research base
-- Operational guides: engagement checklists, delivery templates
+This wiki is the **shared knowledge base for all agents** in Will's system. It is not constrained to any one domain. Agents span consulting, development, social media, personal assistance, and more — this wiki captures knowledge useful across more than one agent or context.
 
-This wiki does **not** contain:
-- Client-specific information (that lives in each project wiki)
-- Will's personal preferences or behavioral patterns (that's ToME)
-- Raw source documents (those stay where they originate)
+**What belongs here:**
+- Infrastructure and systems: how nanoclaw is set up, integrations, credentials architecture
+- Agent registry: who each agent is, what they do, what they know
+- Frameworks and methodologies: AI governance, delivery, consulting
+- Patterns: recurring observations across clients or projects (anonymized)
+- Domain knowledge: regulatory landscape, vendor landscape, research base
+- Will's working context: professional roles, key accounts, tools in use
+
+**What does NOT belong here:**
+- Client-specific information (lives in each project wiki)
+- Will's personal preferences and behavioral patterns (that's ToME)
+- Raw source documents (stay where they originate)
+- Sky-specific operational memory (lives in Sky's group wiki)
 
 ---
 
 ## Page Types
+
+### Infrastructure (`infrastructure/`)
+How Will's agent system is set up — integrations, credentials, architecture decisions, nanoclaw config.
+- Evolving — update in place
+- One file per system or integration
+- Include: what it is, how it's configured, why decisions were made, credential locations (never the credentials themselves)
+
+### Agents (`agents/`)
+One page per agent — capabilities, access level, specialisation, how to delegate to it.
+- Evolving — update as agents are added or change
+- See also: `registry.md` for the routing index
 
 ### Framework (`frameworks/`)
 Structured methodologies, assessment models, and frameworks The OC uses or references.
@@ -28,10 +44,9 @@ Structured methodologies, assessment models, and frameworks The OC uses or refer
 - Include: purpose, when to use, the framework itself, known limitations
 
 ### Pattern (`patterns/`)
-Recurring patterns observed across multiple engagements. Always anonymized.
+Recurring patterns observed across multiple engagements or contexts. Always anonymized.
 - Evolving — add new observations as they accumulate
 - One file per pattern or archetype
-- Include: description, when it appears, how to respond
 
 ### Domain (`domain/`)
 Reference knowledge about the external environment.
@@ -40,20 +55,17 @@ Reference knowledge about the external environment.
 
 ---
 
-## Ingest Rules (Promotion from Project Wikis)
+## Ingest Rules
 
-When Sky promotes content from a project wiki to this global wiki:
+When any agent ingests content into this wiki:
 
-1. **Confirm reusability**: Does this insight apply beyond this one engagement?
-2. **Anonymize**: Remove all client-identifying information (names, industries, deal sizes, timelines) unless the information is publicly available
-3. **Check for conflicts**: Read `index.md` — does a similar page already exist? If yes, merge rather than duplicate
-4. **Write or update the page**
-5. **Log it**:
-   ```
-   [YYYY-MM-DD HH:MM] promote: {source project}/{source page} → {global page} — {one-line reason}
-   ```
-6. **Update index.md** if a new page was created
-7. **Mark done in source project log**: Update the project's `log.md` to mark the `#promote` tag as resolved
+1. **Check scope**: Does this knowledge apply to more than one agent or context? If yes, it belongs here.
+2. **Check index.md**: Does a matching page already exist? Update rather than duplicate.
+3. **Anonymize** client-specific content before promoting from project wikis.
+4. **Write or update the page** (max 10 page operations per ingest).
+5. **Update index.md** if new pages were created.
+6. **Update registry.md** if agent capabilities changed.
+7. **Log the operation** in `log.md`.
 
 ---
 
@@ -70,7 +82,7 @@ One line per page:
 
 **Fortnightly lint** (Sky runs this, same session as ToME review):
 - Check index integrity: all listed pages exist, no orphaned files
-- Flag pages not updated in 60+ days (domain knowledge may be stale)
+- Flag pages not updated in 60+ days (may be stale)
 - Surface pending `#promote` tags from active project wikis
 - Report only — no auto-fixes
 

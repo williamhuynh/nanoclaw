@@ -231,6 +231,8 @@ export async function processTaskIpc(
     trigger?: string;
     requiresTrigger?: boolean;
     containerConfig?: RegisteredGroup['containerConfig'];
+    // For promote_staged_agent
+    stagingFolder?: string;
   },
   sourceGroup: string, // Verified identity from IPC directory
   isMain: boolean, // Verified from directory path
@@ -519,6 +521,131 @@ export async function processTaskIpc(
         );
       }
       break;
+
+    case 'promote_staged_agent': {
+      // Only main group can promote staged agents.
+      if (!isMain) {
+        logger.warn(
+          { sourceGroup },
+          'Unauthorized promote_staged_agent attempt blocked',
+        );
+        break;
+      }
+      if (
+        !data.jid ||
+        !data.name ||
+        !data.folder ||
+        !data.trigger ||
+        !data.stagingFolder
+      ) {
+        logger.warn(
+          { data },
+          'Invalid promote_staged_agent request - missing required fields',
+        );
+        break;
+      }
+      if (!isValidGroupFolder(data.folder)) {
+        logger.warn(
+          { sourceGroup, folder: data.folder },
+          'Invalid promote_staged_agent request - unsafe folder name',
+        );
+        break;
+      }
+
+      // Resolve main's group directory to anchor the staging path.
+      const mainGroup = Object.values(registeredGroups).find((g) => g.isMain);
+      if (!mainGroup) {
+        logger.error(
+          { sourceGroup },
+          'promote_staged_agent: main group not found',
+        );
+        break;
+      }
+      const mainDir = resolveGroupFolderPath(mainGroup.folder);
+
+      // Staging path must resolve inside main's group directory (no escape).
+      const stagingPath = path.resolve(mainDir, data.stagingFolder);
+      const stagingRel = path.relative(mainDir, stagingPath);
+      if (
+        stagingRel === '' ||
+        stagingRel.startsWith('..') ||
+        path.isAbsolute(stagingRel)
+      ) {
+        logger.warn(
+          { sourceGroup, stagingFolder: data.stagingFolder },
+          'promote_staged_agent: staging folder escapes main group dir',
+        );
+        break;
+      }
+      if (
+        !fs.existsSync(stagingPath) ||
+        !fs.statSync(stagingPath).isDirectory()
+      ) {
+        logger.warn(
+          { sourceGroup, stagingPath },
+          'promote_staged_agent: staging folder does not exist',
+        );
+        break;
+      }
+
+      // Target folder must not already exist on disk, and JID must be fresh.
+      const targetDir = resolveGroupFolderPath(data.folder);
+      if (fs.existsSync(targetDir)) {
+        logger.warn(
+          { sourceGroup, folder: data.folder },
+          'promote_staged_agent: target folder already exists',
+        );
+        break;
+      }
+      if (registeredGroups[data.jid]) {
+        logger.warn(
+          { sourceGroup, jid: data.jid },
+          'promote_staged_agent: JID already registered',
+        );
+        break;
+      }
+
+      // Copy staging → target. On failure, clean up any partial copy.
+      try {
+        fs.cpSync(stagingPath, targetDir, { recursive: true });
+      } catch (err) {
+        logger.error(
+          { err, stagingPath, targetDir },
+          'promote_staged_agent: copy failed',
+        );
+        try {
+          fs.rmSync(targetDir, { recursive: true, force: true });
+        } catch {
+          // best-effort cleanup
+        }
+        break;
+      }
+
+      // Register in DB + in-memory. registerGroup() also (idempotently)
+      // creates logs/ and seeds CLAUDE.md from template if missing — our
+      // staging copy already includes CLAUDE.md so the template won't
+      // overwrite it.
+      // Defense in depth: new agents cannot be main.
+      deps.registerGroup(data.jid, {
+        name: data.name,
+        folder: data.folder,
+        trigger: data.trigger,
+        added_at: new Date().toISOString(),
+        containerConfig: data.containerConfig,
+        requiresTrigger: data.requiresTrigger,
+        isMain: undefined,
+      });
+      logger.info(
+        {
+          sourceGroup,
+          jid: data.jid,
+          folder: data.folder,
+          stagingFolder: data.stagingFolder,
+        },
+        'Staged agent promoted',
+      );
+      break;
+    }
 
     case 'delegate':
       if (!data.targetGroup || !data.prompt || !data.delegationId) {

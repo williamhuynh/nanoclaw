@@ -103,6 +103,18 @@ You are a worker container assigned to a single todo. Follow this workflow:
 4. Notify the user via send_message${todoContext.notifyJid ? ` (chatJid: "${todoContext.notifyJid}")` : ''} that the task is ready for review. Keep the notification short — just say what you did and that it's ready for review in the todo card.
 
 Use todo_get with id "${todoContext.todoId}" to see full details before starting.
+
+## When You Can't Complete Something
+
+You are running in a container with limited privileges. If you hit a permission or access barrier (e.g. read-only mount, no sudo, can't reach a service, need credentials you don't have):
+
+1. **Don't stall or retry endlessly.** Acknowledge what you can't do.
+2. **Write clear handoff instructions** in result_content explaining:
+   - What you already completed
+   - What still needs to be done, with exact steps (file paths, commands, code changes) — detailed enough to copy-paste to another agent or the user
+   - Why you couldn't do it (the specific access limitation)
+3. **Create a subtask** for each piece of pending work using todo_create with the parent todo ID. Give each subtask a clear title and description with the exact instructions.
+4. Set the todo to "awaiting_review" and notify the user that partial work is done and subtasks have been created for the rest.
 `;
 
   return md;
@@ -147,13 +159,14 @@ export async function createWorker(
   // 4. Write CLAUDE.md
   fs.writeFileSync(path.join(folderPath, 'CLAUDE.md'), claudeMd, 'utf-8');
 
-  // 5. Register in DB
+  // 5. Register in DB (workers inherit Opus model for quality)
   const registration: RegisteredGroup = {
     name: `Worker: ${opts.title}`,
     folder,
     trigger: DEFAULT_TRIGGER,
     added_at: new Date().toISOString(),
     requiresTrigger: false,
+    containerConfig: { model: 'claude-opus-4-6' },
   };
 
   setRegisteredGroup(jid, registration);

@@ -567,6 +567,80 @@ Use available_groups.json to find the JID for a group. The folder name must be c
 );
 
 server.tool(
+  'promote_staged_agent',
+  `Promote a staged agent folder into a live persistent project agent (like aid-coo or naa-project). Main group only.
+
+Use this to bootstrap a new project/specialist agent end-to-end without host access:
+1. Create and populate a staging folder at /workspace/group/{staging-name}/ — typically CLAUDE.md plus any wiki/, conversations/, logs/ structure.
+2. Call this tool. The host will copy the staging folder to groups/{folder}/ and register it in the DB.
+3. No restart needed — the new agent picks up on next delegation/invocation.
+
+The target folder must not already exist and the JID must not already be registered. Folder names are validated (alphanumeric, hyphen, underscore, colon).`,
+  {
+    stagingFolder: z
+      .string()
+      .describe(
+        'Name of the staging folder inside /workspace/group/ (e.g. "naa-project-staging"). Must be a direct child or subpath of main\'s workspace.',
+      ),
+    folder: z
+      .string()
+      .describe(
+        'Target group folder name (e.g. "naa-project"). Must not already exist.',
+      ),
+    jid: z
+      .string()
+      .describe(
+        'Persistent JID for the new agent (e.g. "naa-project@nanoclaw"). Use the `{folder}@nanoclaw` pattern for project agents.',
+      ),
+    name: z.string().describe('Display name (e.g. "NAA Project")'),
+    trigger: z
+      .string()
+      .describe('Trigger word for this agent (typically "@Sky")'),
+    requiresTrigger: z
+      .boolean()
+      .optional()
+      .describe(
+        'Whether messages must start with the trigger word. Default: false (respond to all delegations).',
+      ),
+  },
+  async (args) => {
+    if (!isMain) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Only the main group can promote staged agents.',
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    const data = {
+      type: 'promote_staged_agent',
+      stagingFolder: args.stagingFolder,
+      folder: args.folder,
+      jid: args.jid,
+      name: args.name,
+      trigger: args.trigger,
+      requiresTrigger: args.requiresTrigger ?? false,
+      timestamp: new Date().toISOString(),
+    };
+
+    writeIpcFile(TASKS_DIR, data);
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Promotion requested: "${args.stagingFolder}" → groups/${args.folder}/ as "${args.name}" (${args.jid}). Check host logs if the agent does not appear in available_agents.json after the next Sky invocation.`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
   'send_photo',
   "Send a photo/image file to the user or group. The file must exist at the given path inside the container. Supported paths: /workspace/group/... (group files). Optional caption is sent as the photo caption.",
   {

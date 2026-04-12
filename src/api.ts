@@ -396,10 +396,11 @@ async function handlePostWorker(
   res: ServerResponse,
 ): Promise<void> {
   const body = JSON.parse(await readBody(req));
-  const { todoId, title, description } = body as {
+  const { todoId, title, description, targetAgentFolder } = body as {
     todoId?: string;
     title?: string;
     description?: string;
+    targetAgentFolder?: string;
   };
   if (!todoId || !title) {
     json(res, 400, { error: 'todoId and title are required' });
@@ -414,6 +415,55 @@ async function handlePostWorker(
   }
   const [mainJid, mainGroup] = mainEntry;
 
+  // Build the assignment message once (shared by both paths)
+  const descLine = description ? `\nDescription: ${description}` : '';
+  const assignmentText = `@Sky You've been assigned a todo.
+
+Title: "${title}"${descLine}
+Todo ID: ${todoId}
+
+Follow the worker workflow in your CLAUDE.md. Start by setting status to "in_progress", then do the work, then set status to "awaiting_review" with your output in result_content.
+
+Use todo_get with id "${todoId}" to see full details.`;
+
+  // If a target agent folder is specified, route directly to that existing agent
+  if (targetAgentFolder) {
+    const targetEntry = Object.entries(groups).find(
+      ([, g]) => g.folder === targetAgentFolder,
+    );
+    if (targetEntry) {
+      const [targetJid, targetGroup] = targetEntry;
+
+      // Ensure chat record exists (FK constraint on messages table)
+      storeChatMetadata(targetJid, new Date().toISOString());
+
+      const msgId = `worker-assign-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      storeMessage({
+        id: msgId,
+        chat_jid: targetJid,
+        sender: 'system',
+        sender_name: 'System',
+        content: assignmentText,
+        timestamp: new Date().toISOString(),
+        is_from_me: false,
+        is_bot_message: false,
+      });
+
+      json(res, 201, {
+        ok: true,
+        workerJid: targetJid,
+        workerFolder: targetGroup.folder,
+        messageId: msgId,
+      });
+      return;
+    }
+    logger.warn(
+      { targetAgentFolder },
+      'Target agent folder not found, falling back to generic worker',
+    );
+  }
+
+  // Generic worker creation (no targetAgentFolder or agent not found)
   const registration = await createWorker({
     todoId,
     title,
@@ -426,17 +476,6 @@ async function handlePostWorker(
   if (onWorkerCreatedFn) onWorkerCreatedFn(jid, registration);
 
   // Inject assignment message into the worker's JID
-  const descLine = description ? `\nDescription: ${description}` : '';
-  const assignmentText = `@Sky You've been assigned a todo.
-
-Title: "${title}"${descLine}
-Todo ID: ${todoId}
-
-Follow the worker workflow in your CLAUDE.md. Start by setting status to "in_progress", then do the work, then set status to "awaiting_review" with your output in result_content.
-
-Use todo_get with id "${todoId}" to see full details.`;
-
-  // Ensure chat entry exists (messages table has FK constraint on chats)
   storeChatMetadata(
     jid,
     new Date().toISOString(),
@@ -457,12 +496,10 @@ Use todo_get with id "${todoId}" to see full details.`;
     is_bot_message: false,
   });
 
-  const folder = registration.folder;
-
   json(res, 201, {
     ok: true,
     workerJid: jid,
-    workerFolder: folder,
+    workerFolder: registration.folder,
     messageId: msgId,
   });
 }

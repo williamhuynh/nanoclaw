@@ -15,6 +15,7 @@ import {
   IDLE_TIMEOUT,
   MAX_MESSAGES_PER_PROMPT,
   POLL_INTERVAL,
+  SESSION_MAX_AGE_MS,
   TIMEZONE,
 } from './config.js';
 import { setWorkerCallbacks, startApiServer } from './api.js';
@@ -306,6 +307,12 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         }
         // Only reset idle timer on actual results, not session-update markers (result: null)
         resetIdleTimer();
+        emitEvent({
+          type: 'container_idle',
+          groupFolder: group.folder,
+          groupName: group.name,
+          timestamp: new Date().toISOString(),
+        });
       }
 
       if (result.status === 'error') {
@@ -339,6 +346,102 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   }
 
   return true;
+}
+
+/**
+ * Archive a session JSONL to conversations/ before discarding.
+ * Extracts user/assistant text messages and writes markdown.
+ * Host-side file I/O only — no API calls.
+ */
+function archiveSession(groupFolder: string, sessionId: string): void {
+  const sessionFile = path.join(
+    DATA_DIR,
+    'sessions',
+    groupFolder,
+    '.claude',
+    'projects',
+    '-workspace-group',
+    `${sessionId}.jsonl`,
+  );
+
+  if (!fs.existsSync(sessionFile)) return;
+
+  let lines: string[];
+  try {
+    lines = fs.readFileSync(sessionFile, 'utf-8').split('\n').filter(Boolean);
+  } catch {
+    logger.warn({ groupFolder, sessionId }, 'Failed to read session for archival');
+    return;
+  }
+
+  // Extract user/assistant text messages
+  const parts: string[] = [];
+  let messageCount = 0;
+  for (const line of lines) {
+    try {
+      const obj = JSON.parse(line);
+      if (obj.type === 'user') {
+        const msg = obj.message;
+        const content =
+          typeof msg?.content === 'string'
+            ? msg.content
+            : Array.isArray(msg?.content)
+              ? msg.content
+                  .filter((b: { type: string }) => b.type === 'text')
+                  .map((b: { text: string }) => b.text)
+                  .join('\n')
+              : null;
+        if (content) {
+          parts.push(`**User**: ${content}\n\n`);
+          messageCount++;
+        }
+      } else if (obj.type === 'assistant') {
+        const msg = obj.message;
+        const content = Array.isArray(msg?.content)
+          ? msg.content
+              .filter((b: { type: string }) => b.type === 'text')
+              .map((b: { text: string }) => b.text)
+              .join('\n')
+          : null;
+        if (content) {
+          parts.push(`**Assistant**: ${content}\n\n`);
+          messageCount++;
+        }
+      }
+    } catch {
+      /* skip unparseable lines */
+    }
+  }
+
+  // Skip trivial sessions (single exchange or empty)
+  if (messageCount < 2) {
+    logger.debug(
+      { groupFolder, sessionId, messageCount },
+      'Session too short to archive',
+    );
+    return;
+  }
+
+  const convDir = path.join(GROUPS_DIR, groupFolder, 'conversations');
+  fs.mkdirSync(convDir, { recursive: true });
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0];
+  const timeStr = now.toISOString().split('T')[1].slice(0, 5).replace(':', '');
+  const filename = `${dateStr}-session-${timeStr}.md`;
+  const header = `# Conversation\n\nArchived: ${now.toISOString()}\n\n---\n\n`;
+
+  try {
+    fs.writeFileSync(path.join(convDir, filename), header + parts.join(''));
+    logger.info(
+      { groupFolder, filename, messageCount },
+      'Archived expired session',
+    );
+  } catch (err) {
+    logger.warn(
+      { groupFolder, err },
+      'Failed to write session archive',
+    );
+  }
 }
 
 async function runAgent(
@@ -389,6 +492,46 @@ async function runAgent(
     }
   }
 
+  // Time-based session reset — archive and discard sessions older than SESSION_MAX_AGE_MS
+  if (sessionId) {
+    const sessionFile = path.join(
+      DATA_DIR,
+      'sessions',
+      group.folder,
+      '.claude',
+      'projects',
+      '-workspace-group',
+      `${sessionId}.jsonl`,
+    );
+    try {
+      const stats = fs.statSync(sessionFile);
+      const ageMs = Date.now() - stats.mtimeMs;
+      if (ageMs > SESSION_MAX_AGE_MS) {
+        const ageHours = (ageMs / 3600000).toFixed(1);
+        logger.info(
+          { group: group.name, ageHours },
+          'Session expired — archiving and starting fresh',
+        );
+        archiveSession(group.folder, sessionId);
+        try {
+          fs.unlinkSync(sessionFile);
+        } catch {
+          /* ignore */
+        }
+        try {
+          fs.rmSync(sessionFile.replace('.jsonl', ''), { recursive: true });
+        } catch {
+          /* ignore */
+        }
+        delete sessions[group.folder];
+        deleteSession(group.folder);
+        sessionId = undefined;
+      }
+    } catch {
+      // File doesn't exist — that's fine
+    }
+  }
+
   // Update tasks snapshot for container to read (filtered by group)
   const tasks = getAllTasks();
   writeTasksSnapshot(
@@ -418,9 +561,7 @@ async function runAgent(
   // Write available agents snapshot so the delegate skill can discover specialists
   if (isMain) {
     const agents = Object.entries(registeredGroups)
-      .filter(
-        ([, g]) => !g.isMain && !isTodoWorkerFolder(g.folder),
-      )
+      .filter(([, g]) => !g.isMain && !isTodoWorkerFolder(g.folder))
       .map(([jid, g]) => ({
         folder: g.folder,
         name: g.name,
