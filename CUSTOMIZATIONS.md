@@ -215,8 +215,8 @@ Each entry: **what** was changed, **why**, and **which files** were modified.
 - `src/types.ts`: Added `model?: string` to `ContainerConfig` interface.
 - `src/container-runner.ts`: `buildContainerArgs()` accepts optional `model` param, passes as `-e CLAUDE_MODEL={model}` to Docker. `runContainerAgent()` reads `group.containerConfig?.model` and forwards it.
 - `container/agent-runner/src/index.ts`: Passes `process.env.CLAUDE_MODEL` to SDK `query()` options as `model` field.
-- `src/worker.ts`: Workers created with `containerConfig: { model: 'claude-opus-4-6' }` by default.
-- `store/messages.db`: Set `container_config.model = 'claude-opus-4-6'` for project groups (main, aid-coo, naa-project, homeschoollms-dev, tandemly-dev, mission-control). linkedin-agent left unset (Sonnet default).
+- `src/worker.ts`: Workers created with `containerConfig: { model: 'claude-opus-4-7' }` by default.
+- `store/messages.db`: Set `container_config.model = 'claude-opus-4-7'` for project groups (main, aid-coo, naa-project, homeschoollms-dev, tandemly-dev, mission-control). linkedin-agent left unset (Sonnet default).
 - `MC: src/server/routes/tasks.ts`: Tasks endpoint resolves and returns `resolved_model` from group's container_config.
 - `MC: src/frontend/pages/TasksPage.tsx`: Model badge on each task (Opus purple, Sonnet blue, Haiku green).
 

@@ -117,6 +117,8 @@ You are running in a container with limited privileges. If you hit a permission 
 4. Set the todo to "awaiting_review" and notify the user that partial work is done and subtasks have been created for the rest.
 `;
 
+  md += `\n## Attachments\n\nThis todo may have file attachments. After calling \`todo_get\`, check the \`attachments\` array in the response. If attachments exist, read them from:\n\n\`/workspace/mission-control/data/attachments/${todoContext.todoId}/{filename}\`\n\nUse the Read tool to view each attachment. Claude can natively read images (PNG, JPG, etc.), PDFs, and all text/code files.\n`;
+
   return md;
 }
 
@@ -166,7 +168,7 @@ export async function createWorker(
     trigger: DEFAULT_TRIGGER,
     added_at: new Date().toISOString(),
     requiresTrigger: false,
-    containerConfig: { model: 'claude-opus-4-6' },
+    containerConfig: { model: 'claude-opus-4-7' },
   };
 
   setRegisteredGroup(jid, registration);

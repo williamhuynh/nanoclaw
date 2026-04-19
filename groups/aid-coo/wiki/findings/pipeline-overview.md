@@ -1,6 +1,6 @@
 ---
 type: finding
-last-updated: 2026-04-05
+last-updated: 2026-04-13
 source: AiD Operations Hub snapshot 2026-04-05 (paste)
 ---
 
@@ -31,6 +31,14 @@ source: AiD Operations Hub snapshot 2026-04-05 (paste)
 |---|---|---|---|---|---|---|---|
 | Dept. of Education Victoria | LLM Sandbox | 13 Apr 2026 | 10 weeks | $74,730 | 42.8% | $1,590 | AT |
 | Jetstar | AI and Personalisation Enablement | 20 Apr 2026 | 4 weeks | $9,600 | 41.2% | $1,600 | SK |
+
+---
+
+### Proposal Stage
+
+| Client | Engagement | Status | AiD Role | Team |
+|---|---|---|---|---|
+| Westpac | Optifusion — human-AI design research | Proposal planning (13–14 Apr 2026) | AI team: output design for AI consumption, persona prototype | CE, HM, AK |
 
 ---
 

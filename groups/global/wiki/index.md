@@ -18,7 +18,7 @@
 
 ## Patterns
 
-*(No pages yet.)*
+- [In-Meeting Specialist Agent Mode](patterns/in-meeting-pattern.md) — prompt/response contract for SkyMeet-aware specialist agents (question/wake/post-meeting) — last updated 2026-04-17
 
 ## Domain
 

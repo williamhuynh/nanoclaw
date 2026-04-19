@@ -18,7 +18,7 @@ import {
   SESSION_MAX_AGE_MS,
   TIMEZONE,
 } from './config.js';
-import { setWorkerCallbacks, startApiServer } from './api.js';
+import { setWorkerCallbacks, setRunDelegationFn, startApiServer } from './api.js';
 import { startCredentialProxy } from './credential-proxy.js';
 import './channels/index.js';
 import {
@@ -208,10 +208,9 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
 
   const isWorker = isWorkerJid(chatJid);
   const channel = findChannel(channels, chatJid);
-  if (!channel && !isWorker) {
-    logger.warn({ chatJid }, 'No channel owns JID, skipping messages');
-    return true;
-  }
+  // group is already validated non-null above, so if we get here,
+  // this is a registered agent. Allow channelless registered groups
+  // (named agents like aid-coo assigned via MC) through.
 
   const isMainGroup = group.isMain === true;
 
@@ -370,7 +369,10 @@ function archiveSession(groupFolder: string, sessionId: string): void {
   try {
     lines = fs.readFileSync(sessionFile, 'utf-8').split('\n').filter(Boolean);
   } catch {
-    logger.warn({ groupFolder, sessionId }, 'Failed to read session for archival');
+    logger.warn(
+      { groupFolder, sessionId },
+      'Failed to read session for archival',
+    );
     return;
   }
 
@@ -437,10 +439,7 @@ function archiveSession(groupFolder: string, sessionId: string): void {
       'Archived expired session',
     );
   } catch (err) {
-    logger.warn(
-      { groupFolder, err },
-      'Failed to write session archive',
-    );
+    logger.warn({ groupFolder, err }, 'Failed to write session archive');
   }
 }
 
@@ -693,7 +692,9 @@ async function startMessageLoop(): Promise<void> {
           if (!group) continue;
 
           const channel = findChannel(channels, chatJid);
-          if (!channel && !isWorkerJid(chatJid)) {
+          // Allow channelless groups through if they're registered (named agents like aid-coo)
+          // or workers. Only skip truly unowned JIDs.
+          if (!channel && !isWorkerJid(chatJid) && !registeredGroups[chatJid]) {
             logger.warn({ chatJid }, 'No channel owns JID, skipping messages');
             continue;
           }
@@ -1081,6 +1082,60 @@ async function main(): Promise<void> {
       if (text) await channel.sendMessage(jid, text);
     },
   });
+  // Synchronous single-shot specialist delegate. Spawns the target's
+  // container with the prompt, captures its final output, and resolves.
+  // Shared by the IPC delegate pipeline and /api/delegate-sync (via
+  // setRunDelegationFn below).
+  const runDelegation = async (
+    targetFolder: string,
+    prompt: string,
+  ): Promise<{ status: 'success' | 'error'; result: string | null; error?: string }> => {
+    const targetEntry = Object.entries(registeredGroups).find(
+      ([, g]) => g.folder === targetFolder,
+    );
+    if (!targetEntry) {
+      return {
+        status: 'error' as const,
+        result: null,
+        error: `Group with folder "${targetFolder}" not registered`,
+      };
+    }
+    const [targetJid, targetGroup] = targetEntry;
+
+    let resultText: string | null = null;
+
+    const status = await runAgent(
+      targetGroup,
+      prompt,
+      targetJid,
+      async (output) => {
+        if (output.result) {
+          const raw =
+            typeof output.result === 'string'
+              ? output.result
+              : JSON.stringify(output.result);
+          const text = raw
+            .replace(/<internal>[\s\S]*?<\/internal>/g, '')
+            .trim();
+          if (text) {
+            resultText = resultText ? `${resultText}\n\n${text}` : text;
+          }
+        }
+        // Signal container to exit — delegation is single-query
+        const ipcInputDir = path.join(DATA_DIR, 'ipc', targetFolder, 'input');
+        fs.mkdirSync(ipcInputDir, { recursive: true });
+        fs.writeFileSync(path.join(ipcInputDir, '_close'), '');
+      },
+    );
+
+    return {
+      status:
+        status === 'success' ? ('success' as const) : ('error' as const),
+      result: resultText,
+      error: status === 'error' ? 'Agent returned error' : undefined,
+    };
+  };
+
   startIpcWatcher({
     sendMessage: (jid, text) => {
       const channel = findChannel(channels, jid);
@@ -1122,55 +1177,13 @@ async function main(): Promise<void> {
         writeTasksSnapshot(group.folder, group.isMain === true, taskRows);
       }
     },
-    runDelegation: async (targetFolder, prompt) => {
-      // Find the registered group entry by folder name
-      const targetEntry = Object.entries(registeredGroups).find(
-        ([, g]) => g.folder === targetFolder,
-      );
-      if (!targetEntry) {
-        return {
-          status: 'error' as const,
-          result: null,
-          error: `Group with folder "${targetFolder}" not registered`,
-        };
-      }
-      const [targetJid, targetGroup] = targetEntry;
-
-      // Collect all output chunks into a single result
-      let resultText: string | null = null;
-
-      const status = await runAgent(
-        targetGroup,
-        prompt,
-        targetJid,
-        async (output) => {
-          if (output.result) {
-            const raw =
-              typeof output.result === 'string'
-                ? output.result
-                : JSON.stringify(output.result);
-            const text = raw
-              .replace(/<internal>[\s\S]*?<\/internal>/g, '')
-              .trim();
-            if (text) {
-              resultText = resultText ? `${resultText}\n\n${text}` : text;
-            }
-          }
-          // Signal container to exit — delegation is single-query
-          const ipcInputDir = path.join(DATA_DIR, 'ipc', targetFolder, 'input');
-          fs.mkdirSync(ipcInputDir, { recursive: true });
-          fs.writeFileSync(path.join(ipcInputDir, '_close'), '');
-        },
-      );
-
-      return {
-        status:
-          status === 'success' ? ('success' as const) : ('error' as const),
-        result: resultText,
-        error: status === 'error' ? 'Agent returned error' : undefined,
-      };
-    },
+    runDelegation,
   });
+
+  // Wire the same runDelegation into the HTTP layer so /api/delegate-sync
+  // can call it directly without going through the IPC result-file path.
+  setRunDelegationFn(runDelegation);
+
   queue.setProcessMessagesFn(processGroupMessages);
   recoverPendingMessages();
   startMessageLoop().catch((err) => {

@@ -75,7 +75,10 @@ export const API_PORT = parseInt(process.env.NANOCLAW_API_PORT || '3004', 10);
 export const API_HOST = process.env.NANOCLAW_API_HOST || '';
 export const IPC_POLL_INTERVAL = 1000;
 export const IDLE_TIMEOUT = parseInt(process.env.IDLE_TIMEOUT || '1800000', 10); // 30min default — how long to keep container alive after last result
-export const SESSION_MAX_AGE_MS = parseInt(process.env.SESSION_MAX_AGE_MS || String(2 * 60 * 60 * 1000), 10); // 2h default — sessions older than this are archived and reset
+export const SESSION_MAX_AGE_MS = parseInt(
+  process.env.SESSION_MAX_AGE_MS || String(2 * 60 * 60 * 1000),
+  10,
+); // 2h default — sessions older than this are archived and reset
 export const MAX_CONCURRENT_CONTAINERS = Math.max(
   1,
   parseInt(process.env.MAX_CONCURRENT_CONTAINERS || '15', 10) || 15,

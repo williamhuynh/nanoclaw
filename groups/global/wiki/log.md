@@ -7,3 +7,5 @@
 [2026-04-06 16:30] schema-update: broadened scope from consulting-only to all-agent shared knowledge base — added infrastructure/ and agents/ page types
 [2026-04-06 16:30] ingest: Google integrations setup (Sky conversation) → created infrastructure/google-integrations.md, agents/sky.md
 [2026-04-06 16:30] registry-update: registered main (Sky), aid-coo, linkedin-agent
+[2026-04-17 13:05] ingest: SkyMeet in-meeting pattern (todo 167a35c9) → created patterns/in-meeting-pattern.md, updated index.md
+[2026-04-17 13:05] registry-update: naa-project topics extended with `in-meeting` (pending write — see handoff)

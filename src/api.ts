@@ -48,6 +48,17 @@ export function setWorkerCallbacks(
   onWorkerDestroyedFn = onDestroy;
 }
 
+// Injected from index.ts so /api/delegate-sync can call the same
+// runDelegation primitive the IPC delegate path uses.
+type RunDelegationFn = (
+  targetFolder: string,
+  prompt: string,
+) => Promise<{ status: 'success' | 'error'; result: string | null; error?: string }>;
+let runDelegationFn: RunDelegationFn | null = null;
+export function setRunDelegationFn(fn: RunDelegationFn): void {
+  runDelegationFn = fn;
+}
+
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
@@ -224,6 +235,45 @@ async function handlePostMessage(
   });
 
   json(res, 202, { ok: true, ipcFile: filename });
+}
+
+async function handlePostDelegateSync(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
+  const body = JSON.parse(await readBody(req));
+  const { targetGroup, prompt } = body as {
+    targetGroup?: string;
+    prompt?: string;
+  };
+  if (!targetGroup || !prompt) {
+    json(res, 400, { error: 'targetGroup and prompt are required' });
+    return;
+  }
+  if (!isValidGroupFolder(targetGroup)) {
+    json(res, 400, { error: 'Invalid targetGroup folder name' });
+    return;
+  }
+  if (!runDelegationFn) {
+    json(res, 503, { error: 'Delegation not wired yet — server still starting' });
+    return;
+  }
+
+  // runDelegation runs the specialist container, captures its output, and
+  // resolves with { status, result }. Unlike /api/delegate this waits in
+  // the handler for the result before replying — no IPC result-file round-
+  // trip, no collision with source-group message processing.
+  try {
+    const out = await runDelegationFn(targetGroup, prompt);
+    if (out.status === 'success' && out.result != null) {
+      json(res, 200, { ok: true, result: out.result });
+    } else {
+      json(res, 502, { ok: false, error: out.error ?? 'Specialist returned no result' });
+    }
+  } catch (err) {
+    logger.error({ err, targetGroup }, '/api/delegate-sync failed');
+    json(res, 500, { ok: false, error: err instanceof Error ? err.message : String(err) });
+  }
 }
 
 async function handlePostDelegate(
@@ -615,6 +665,12 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   // POST /api/delegate
   if (method === 'POST' && urlPath === '/api/delegate') {
     await handlePostDelegate(req, res);
+    return;
+  }
+
+  // POST /api/delegate-sync — blocks until the specialist responds
+  if (method === 'POST' && urlPath === '/api/delegate-sync') {
+    await handlePostDelegateSync(req, res);
     return;
   }
 

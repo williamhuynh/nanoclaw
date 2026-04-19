@@ -29,5 +29,5 @@ Last updated: 2026-04-06
 ## naa-project
 
 Type: persistent (identity: naa-project@nanoclaw)
-Topics: National Archives of Australia, NAA, DEX AI Search, GovAI, government AI, delivery progress, sprint ceremonies, Phase 1, Phase 2 pipeline, WL Will Lobb, engagement decisions, meeting notes
-Last updated: 2026-04-07
+Topics: National Archives of Australia, NAA, DEX AI Search, GovAI, government AI, delivery progress, sprint ceremonies, Phase 1, Phase 2 pipeline, WL Will Lobb, engagement decisions, meeting notes, in-meeting (SkyMeet)
+Last updated: 2026-04-17

@@ -204,7 +204,10 @@ export function buildVolumeMounts(
   }
 
   // Google Calendar credentials directory
-  const calendarDir = path.join(process.env.HOME || '/root', '.google-calendar-mcp');
+  const calendarDir = path.join(
+    process.env.HOME || '/root',
+    '.google-calendar-mcp',
+  );
   if (fs.existsSync(calendarDir)) {
     mounts.push({
       hostPath: calendarDir,
@@ -609,18 +612,22 @@ export async function runContainerAgent(
       if (timedOut) {
         const ts = new Date().toISOString().replace(/[:.]/g, '-');
         const timeoutLog = path.join(logsDir, `container-${ts}.log`);
-        fs.writeFileSync(
-          timeoutLog,
-          [
-            `=== Container Run Log (TIMEOUT) ===`,
-            `Timestamp: ${new Date().toISOString()}`,
-            `Group: ${group.name}`,
-            `Container: ${containerName}`,
-            `Duration: ${duration}ms`,
-            `Exit Code: ${code}`,
-            `Had Streaming Output: ${hadStreamingOutput}`,
-          ].join('\n'),
-        );
+        try {
+          fs.writeFileSync(
+            timeoutLog,
+            [
+              `=== Container Run Log (TIMEOUT) ===`,
+              `Timestamp: ${new Date().toISOString()}`,
+              `Group: ${group.name}`,
+              `Container: ${containerName}`,
+              `Duration: ${duration}ms`,
+              `Exit Code: ${code}`,
+              `Had Streaming Output: ${hadStreamingOutput}`,
+            ].join('\n'),
+          );
+        } catch {
+          logger.warn({ group: group.name, timeoutLog }, 'Failed to write timeout log (directory may have been trashed)');
+        }
 
         // Timeout after output = idle cleanup, not failure.
         // The agent already sent its response; this is just the
@@ -718,8 +725,12 @@ export async function runContainerAgent(
         );
       }
 
-      fs.writeFileSync(logFile, logLines.join('\n'));
-      logger.debug({ logFile, verbose: isVerbose }, 'Container log written');
+      try {
+        fs.writeFileSync(logFile, logLines.join('\n'));
+        logger.debug({ logFile, verbose: isVerbose }, 'Container log written');
+      } catch {
+        logger.warn({ group: group.name, logFile }, 'Failed to write container log (directory may have been trashed)');
+      }
 
       if (code !== 0) {
         logger.error(
