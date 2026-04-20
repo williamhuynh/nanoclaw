@@ -92,11 +92,36 @@ function authenticate(req: IncomingMessage): boolean {
 // Request helpers
 // ---------------------------------------------------------------------------
 
-function readBody(req: IncomingMessage): Promise<string> {
+const DEFAULT_BODY_MAX_BYTES = 1_048_576; // 1 MB — covers normal JSON payloads
+const DELEGATE_SYNC_MAX_BYTES = 262_144; // 256 KB — delegate prompts don't need more
+
+class BodyTooLargeError extends Error {
+  constructor(public readonly limit: number) {
+    super(`Request body exceeded ${limit} bytes`);
+    this.name = 'BodyTooLargeError';
+  }
+}
+
+function readBody(
+  req: IncomingMessage,
+  maxBytes = DEFAULT_BODY_MAX_BYTES,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on('data', (c) => chunks.push(c));
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+    let total = 0;
+    req.on('data', (c: Buffer) => {
+      total += c.length;
+      if (total > maxBytes) {
+        req.destroy();
+        reject(new BodyTooLargeError(maxBytes));
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on('end', () => {
+      if (total > maxBytes) return; // already rejected
+      resolve(Buffer.concat(chunks).toString('utf-8'));
+    });
     req.on('error', reject);
   });
 }
@@ -251,7 +276,17 @@ async function handlePostDelegateSync(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
-  const body = JSON.parse(await readBody(req));
+  let rawBody: string;
+  try {
+    rawBody = await readBody(req, DELEGATE_SYNC_MAX_BYTES);
+  } catch (err) {
+    if (err instanceof BodyTooLargeError) {
+      json(res, 413, { error: `Request body exceeds ${err.limit} bytes` });
+      return;
+    }
+    throw err;
+  }
+  const body = JSON.parse(rawBody);
   const { targetGroup, prompt } = body as {
     targetGroup?: string;
     prompt?: string;
