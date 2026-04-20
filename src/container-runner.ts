@@ -351,6 +351,7 @@ export async function buildContainerArgs(
   containerName: string,
   agentIdentifier?: string,
   model?: string,
+  injectNanoclawApiKey?: boolean,
 ): Promise<string[]> {
   const args: string[] = ['run', '-i', '--rm', '--name', containerName];
 
@@ -381,6 +382,15 @@ export async function buildContainerArgs(
   args.push('-e', 'GIT_AUTHOR_EMAIL=nanoclaw@users.noreply.github.com');
   args.push('-e', 'GIT_COMMITTER_NAME=NanoClaw');
   args.push('-e', 'GIT_COMMITTER_EMAIL=nanoclaw@users.noreply.github.com');
+
+  // Scheduled-task pre-check scripts sometimes need to call back into the
+  // nanoclaw HTTP API on the host (e.g. nightly orphan worker cleanup hitting
+  // DELETE /api/workers/:id). Pass the API key through ONLY for scheduled-task
+  // containers; regular agent containers remain credential-isolated.
+  if (injectNanoclawApiKey) {
+    const key = process.env.NANOCLAW_API_KEY || '';
+    if (key) args.push('-e', `NANOCLAW_API_KEY=${key}`);
+  }
 
   // Runtime-specific args for host gateway resolution
   args.push(...hostGatewayArgs());
@@ -431,6 +441,7 @@ export async function runContainerAgent(
     containerName,
     agentIdentifier,
     group.containerConfig?.model,
+    input.isScheduledTask === true,
   );
 
   logger.debug(
@@ -626,7 +637,10 @@ export async function runContainerAgent(
             ].join('\n'),
           );
         } catch {
-          logger.warn({ group: group.name, timeoutLog }, 'Failed to write timeout log (directory may have been trashed)');
+          logger.warn(
+            { group: group.name, timeoutLog },
+            'Failed to write timeout log (directory may have been trashed)',
+          );
         }
 
         // Timeout after output = idle cleanup, not failure.
@@ -729,7 +743,10 @@ export async function runContainerAgent(
         fs.writeFileSync(logFile, logLines.join('\n'));
         logger.debug({ logFile, verbose: isVerbose }, 'Container log written');
       } catch {
-        logger.warn({ group: group.name, logFile }, 'Failed to write container log (directory may have been trashed)');
+        logger.warn(
+          { group: group.name, logFile },
+          'Failed to write container log (directory may have been trashed)',
+        );
       }
 
       if (code !== 0) {

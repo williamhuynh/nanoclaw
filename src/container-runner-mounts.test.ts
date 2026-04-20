@@ -386,6 +386,36 @@ describe('Container args', () => {
     const args = await buildContainerArgs(stubMounts, 'test-container');
     expect(args).toContain('TZ=America/Los_Angeles');
   });
+
+  it('passes NANOCLAW_API_KEY through when injectNanoclawApiKey=true', async () => {
+    const prev = process.env.NANOCLAW_API_KEY;
+    process.env.NANOCLAW_API_KEY = 'test-key';
+    try {
+      const args = await buildContainerArgs(
+        stubMounts,
+        'test-container',
+        undefined,
+        undefined,
+        true,
+      );
+      expect(args).toContain('NANOCLAW_API_KEY=test-key');
+    } finally {
+      if (prev === undefined) delete process.env.NANOCLAW_API_KEY;
+      else process.env.NANOCLAW_API_KEY = prev;
+    }
+  });
+
+  it('does NOT pass NANOCLAW_API_KEY when flag is false or omitted', async () => {
+    const prev = process.env.NANOCLAW_API_KEY;
+    process.env.NANOCLAW_API_KEY = 'test-key';
+    try {
+      const args = await buildContainerArgs(stubMounts, 'test-container');
+      expect(args.join(' ')).not.toContain('NANOCLAW_API_KEY');
+    } finally {
+      if (prev === undefined) delete process.env.NANOCLAW_API_KEY;
+      else process.env.NANOCLAW_API_KEY = prev;
+    }
+  });
 });
 
 // ===========================================================================
