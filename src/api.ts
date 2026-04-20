@@ -93,7 +93,8 @@ function authenticate(req: IncomingMessage): boolean {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_BODY_MAX_BYTES = 1_048_576; // 1 MB — covers normal JSON payloads
-const DELEGATE_SYNC_MAX_BYTES = 262_144; // 256 KB — delegate prompts don't need more
+const DELEGATE_SYNC_MAX_BYTES = 262_144; // 256 KB — sync delegate prompts are short (briefings)
+const DELEGATE_MAX_BYTES = 2_097_152; // 2 MB — fire-and-forget delegate carries full meeting transcripts (4h+ calls)
 
 class BodyTooLargeError extends Error {
   constructor(public readonly limit: number) {
@@ -360,7 +361,17 @@ async function handlePostDelegate(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
-  const body = JSON.parse(await readBody(req));
+  let rawBody: string;
+  try {
+    rawBody = await readBody(req, DELEGATE_MAX_BYTES);
+  } catch (err) {
+    if (err instanceof BodyTooLargeError) {
+      json(res, 413, { error: `Request body exceeds ${err.limit} bytes` });
+      return;
+    }
+    throw err;
+  }
+  const body = JSON.parse(rawBody);
   const { targetGroup, prompt } = body as {
     targetGroup?: string;
     prompt?: string;
