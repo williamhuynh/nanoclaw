@@ -53,7 +53,11 @@ export function setWorkerCallbacks(
 type RunDelegationFn = (
   targetFolder: string,
   prompt: string,
-) => Promise<{ status: 'success' | 'error'; result: string | null; error?: string }>;
+) => Promise<{
+  status: 'success' | 'error';
+  result: string | null;
+  error?: string;
+}>;
 let runDelegationFn: RunDelegationFn | null = null;
 export function setRunDelegationFn(fn: RunDelegationFn): void {
   runDelegationFn = fn;
@@ -237,6 +241,12 @@ async function handlePostMessage(
   json(res, 202, { ok: true, ipcFile: filename });
 }
 
+// Hard ceiling on how long /api/delegate-sync will hold the HTTP response.
+// Callers (MC's delegateSync) have their own 90s timeout; this is the
+// server-side backstop so a hanging specialist can't pin a connection and
+// the runtime forever.
+const DELEGATE_SYNC_TIMEOUT_MS = 120_000;
+
 async function handlePostDelegateSync(
   req: IncomingMessage,
   res: ServerResponse,
@@ -255,24 +265,59 @@ async function handlePostDelegateSync(
     return;
   }
   if (!runDelegationFn) {
-    json(res, 503, { error: 'Delegation not wired yet — server still starting' });
+    json(res, 503, {
+      error: 'Delegation not wired yet — server still starting',
+    });
     return;
   }
+
+  // If the client drops (MC's 90s timeout fires), stop bothering with the
+  // response. The delegate container keeps running in the background — the
+  // IPC side will collect its result via the normal session-file flush.
+  let clientAborted = false;
+  req.on('close', () => {
+    if (!res.writableEnded) clientAborted = true;
+  });
 
   // runDelegation runs the specialist container, captures its output, and
   // resolves with { status, result }. Unlike /api/delegate this waits in
   // the handler for the result before replying — no IPC result-file round-
   // trip, no collision with source-group message processing.
+  let timer: NodeJS.Timeout | null = null;
+  const timeoutErr = new Error('delegate-sync timeout');
   try {
-    const out = await runDelegationFn(targetGroup, prompt);
+    const out = await Promise.race([
+      runDelegationFn(targetGroup, prompt),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(timeoutErr), DELEGATE_SYNC_TIMEOUT_MS);
+      }),
+    ]);
+    if (timer) clearTimeout(timer);
+    if (clientAborted) return;
     if (out.status === 'success' && out.result != null) {
       json(res, 200, { ok: true, result: out.result });
     } else {
-      json(res, 502, { ok: false, error: out.error ?? 'Specialist returned no result' });
+      json(res, 502, {
+        ok: false,
+        error: out.error ?? 'Specialist returned no result',
+      });
     }
   } catch (err) {
+    if (timer) clearTimeout(timer);
+    if (clientAborted) return;
+    if (err === timeoutErr) {
+      logger.warn(
+        { targetGroup, timeoutMs: DELEGATE_SYNC_TIMEOUT_MS },
+        '/api/delegate-sync timed out',
+      );
+      json(res, 504, { ok: false, error: 'Specialist timed out' });
+      return;
+    }
     logger.error({ err, targetGroup }, '/api/delegate-sync failed');
-    json(res, 500, { ok: false, error: err instanceof Error ? err.message : String(err) });
+    json(res, 500, {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
