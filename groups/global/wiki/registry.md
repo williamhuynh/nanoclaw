@@ -31,3 +31,9 @@ Last updated: 2026-04-06
 Type: persistent (identity: naa-project@nanoclaw)
 Topics: National Archives of Australia, NAA, DEX AI Search, GovAI, government AI, delivery progress, sprint ceremonies, Phase 1, Phase 2 pipeline, WL Will Lobb, engagement decisions, meeting notes, in-meeting (SkyMeet)
 Last updated: 2026-04-17
+
+## alceon-project
+
+Type: persistent (identity: alceon-project@nanoclaw)
+Topics: Alceon, Sze (Head of AI), Joel (Head of AI and Data), David Wilshire (MD Private Equity), portcos, portfolio companies, AI Delivery Monthly Retainer, May 2026 squad expansion, Philippine AI use thesis, agentic workflows, PE / private equity AI delivery, retainer commercials, use case scoping, in-meeting (SkyMeet)
+Last updated: 2026-04-23

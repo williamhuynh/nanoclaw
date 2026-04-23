@@ -1,7 +1,7 @@
 ---
 type: entity
-last-updated: 2026-04-14
-source: Email chain via Toby Tank (The Onset) + web research
+last-updated: 2026-04-20
+source: Email chain via Toby Tank (The Onset) + web research + OC fortnightly 2026-04-20
 ---
 
 # Cochlear Limited
@@ -44,7 +44,18 @@ ASX-listed global medtech company. World leader in implantable hearing solutions
 - **Mobile**: +61421045146
 - **Note**: Initiated the intro request to Toby
 
+### Tom Wolf
+- **Role**: VP of AI, Cochlear
+- **Note**: Friend of the business (warm intro pathway). Will to chase a meeting.
+
+### Toby Tank
+- **Role**: Practice Lead, Innovation & Sustainability — The Onset
+- **Note**: Initiated the intro. Chris (Onset) asked Will to include Toby in sales meetings as observer so he learns to sell AiD work and becomes internal advocate.
+
 ## Next Steps
 
-- Meeting to be scheduled for w/c 21 Apr 2026 (at Cochlear Macquarie offices or virtual)
-- Exploratory — understand what's driving their interest before positioning AiD services
+- Meeting to be scheduled with Xerxes (w/c 21 Apr) at Cochlear Macquarie offices or virtual
+- Land time with Tom Wolf (VP of AI)
+- Aaron to introduce ex-clients Cynthia Sparra and David at Cochlear (separate context-setting call with Will first)
+- Cynthia Evans (AiD) connecting with Michelle on innovation/industries angle
+- Include Toby in sales conversations as observer/advocate

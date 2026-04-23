@@ -1,15 +1,17 @@
 ---
 type: entity
-last-updated: 2026-04-13
-source: Email from Will to Cynthia + Westpac RFP Q&A meeting notes, 13 Apr 2026
+last-updated: 2026-04-20
+source: Email from Will to Cynthia + Westpac RFP Q&A meeting notes, 13 Apr 2026; OC fortnightly 20 Apr
 ---
 
 # Westpac
 
 ## Overview
-- **Type:** Client (prospective — proposal stage)
+- **Type:** Client (prospective — proposal submitted)
 - **Engagement:** Optifusion proposal — research into customer attitudes toward AI in banking
-- **Status:** Proposal planning (sessions 13–14 Apr 2026)
+- **Status:** Proposal submitted Friday 17 Apr 2026 (signatory: Andrew McMillan)
+- **Format:** Long-form Word doc + HTML version (no PowerPoint — Andy's preference; researcher audience)
+- **Note:** First time Andrew has seen the Omnia collective branding. Aaron to brief Sean in person (Tue/Wed) before any internal contest.
 - **Relationship to AiD:** AiD providing AI team expertise within a broader Optifusion-led proposal
 
 ## Goal of the Work
