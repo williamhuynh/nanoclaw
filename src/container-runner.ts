@@ -626,7 +626,10 @@ export async function runContainerAgent(
             ].join('\n'),
           );
         } catch {
-          logger.warn({ group: group.name, timeoutLog }, 'Failed to write timeout log (directory may have been trashed)');
+          logger.warn(
+            { group: group.name, timeoutLog },
+            'Failed to write timeout log (directory may have been trashed)',
+          );
         }
 
         // Timeout after output = idle cleanup, not failure.
@@ -729,7 +732,10 @@ export async function runContainerAgent(
         fs.writeFileSync(logFile, logLines.join('\n'));
         logger.debug({ logFile, verbose: isVerbose }, 'Container log written');
       } catch {
-        logger.warn({ group: group.name, logFile }, 'Failed to write container log (directory may have been trashed)');
+        logger.warn(
+          { group: group.name, logFile },
+          'Failed to write container log (directory may have been trashed)',
+        );
       }
 
       if (code !== 0) {

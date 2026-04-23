@@ -18,7 +18,11 @@ import {
   SESSION_MAX_AGE_MS,
   TIMEZONE,
 } from './config.js';
-import { setWorkerCallbacks, setRunDelegationFn, startApiServer } from './api.js';
+import {
+  setWorkerCallbacks,
+  setRunDelegationFn,
+  startApiServer,
+} from './api.js';
 import { startCredentialProxy } from './credential-proxy.js';
 import './channels/index.js';
 import {
@@ -1089,7 +1093,11 @@ async function main(): Promise<void> {
   const runDelegation = async (
     targetFolder: string,
     prompt: string,
-  ): Promise<{ status: 'success' | 'error'; result: string | null; error?: string }> => {
+  ): Promise<{
+    status: 'success' | 'error';
+    result: string | null;
+    error?: string;
+  }> => {
     const targetEntry = Object.entries(registeredGroups).find(
       ([, g]) => g.folder === targetFolder,
     );
@@ -1129,8 +1137,7 @@ async function main(): Promise<void> {
     );
 
     return {
-      status:
-        status === 'success' ? ('success' as const) : ('error' as const),
+      status: status === 'success' ? ('success' as const) : ('error' as const),
       result: resultText,
       error: status === 'error' ? 'Agent returned error' : undefined,
     };
