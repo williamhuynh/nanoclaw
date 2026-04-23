@@ -497,7 +497,8 @@ async function runQuery(
         'NotebookEdit',
         'mcp__nanoclaw__*',
         'mcp__gmail__*',
-        'mcp__gcalendar__*'
+        'mcp__gcalendar__*',
+        'mcp__excalidraw__*',
       ],
       env: sdkEnv,
       model: process.env.CLAUDE_MODEL || undefined,
@@ -525,6 +526,10 @@ async function runQuery(
             GOOGLE_CALENDAR_MCP_TOKEN_PATH: '/home/node/.google-calendar-mcp/tokens.json',
             GOOGLE_OAUTH_CREDENTIALS: '/home/node/.google-calendar-mcp/gcp-oauth.keys.json',
           },
+        },
+        excalidraw: {
+          type: 'http',
+          url: 'https://mcp.excalidraw.com/mcp',
         },
       },
       hooks: {

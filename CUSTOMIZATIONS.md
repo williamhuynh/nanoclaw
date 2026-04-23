@@ -263,3 +263,24 @@ Each entry: **what** was changed, **why**, and **which files** were modified.
 - Wiki extraction reads `conversations/*.md` — full transcripts including agent reasoning and tool usage. Rich format needed for entity/finding/decision extraction.
 - Tome-observe reads `messages` DB — raw user messages always complete, real-time, queryable. Right for learning signals about user preferences and corrections.
 - `conversations/` is now complete thanks to archive-on-reset (previously only populated by SDK auto-compaction).
+
+## Excalidraw MCP server registration (2026-04-23)
+
+**Purpose:** Give Sky and other nanoclaw agents live canvas tools — render, iterate, and screenshot Excalidraw diagrams in real time — instead of only emitting static `.excalidraw` JSON files that need a local viewer to inspect.
+
+**Solution:** Register the official Excalidraw MCP (`github.com/excalidraw/excalidraw-mcp`) via its hosted remote endpoint at `https://mcp.excalidraw.com/mcp` as a Streamable HTTP MCP server. No host-side install; every agent container picks it up on next spawn via the existing mtime-driven per-group source copy in `src/container-runner.ts:302–328`.
+
+**Changes:**
+
+- `container/agent-runner/src/index.ts`:
+  - Added `'mcp__excalidraw__*'` to the `allowedTools` glob list (after `mcp__gcalendar__*`).
+  - Added `excalidraw: { type: 'http', url: 'https://mcp.excalidraw.com/mcp' }` to the `mcpServers` block.
+
+**Verified pre-deploy:**
+- Repo is official (excalidraw org).
+- Endpoint `/mcp` advertises `GET, POST, DELETE, OPTIONS` + `Mcp-Session-Id` → confirms Streamable HTTP transport (not legacy SSE).
+- `npx tsc --noEmit` clean in `container/agent-runner/`.
+
+**Security note:** Every agent can now reach `mcp.excalidraw.com` and send whatever content it renders. Risk bounded by what the agent chooses to include in a diagram; non-trivial but acceptable for Sky's diagramming use case.
+
+**Rollback:** revert the two hunks in `container/agent-runner/src/index.ts`. Change takes effect only on next container spawn; running containers are unaffected either way.
