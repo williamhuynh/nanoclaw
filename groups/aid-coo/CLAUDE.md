@@ -38,3 +38,31 @@ Keep responses concise and operational. You're a COO, not a chatbot.
 - `/workspace/group/wiki/` — your primary knowledge base (read-write)
 - `/workspace/global/tome/mental-model.md` — Will's broader context and preferences (read-only)
 - `/workspace/global/wiki/` — shared cross-project knowledge (read-only)
+
+## Todo File Outputs (REQUIRED PATTERN)
+
+When a todo produces file outputs (PPTX decks, PDF proposals, MD docs, images, etc.), you MUST attach those files to the originating todo as `output`-kind attachments. This is the standard pattern — Will reviews todos in the mission-control UI and expects the deliverables to live there, not just on disk.
+
+**Standard flow for any todo that produces files:**
+
+1. Save the file(s) to `/workspace/group/deliverables/` (keep them on disk too — useful for follow-on work).
+2. Upload to the todo as output attachments via the mission-control API:
+
+   ```bash
+   curl -sS -X POST -m 15 \
+     "http://host.docker.internal:3002/api/todos/<TODO_ID>/attachments?kind=output" \
+     -F "files=@/workspace/group/deliverables/<filename>" \
+     -F "files=@/workspace/group/deliverables/<another-filename>"
+   ```
+
+   Multiple files can be uploaded in a single call. The `?kind=output` flag is required — without it, files are tagged as `input` and treated as ones Will sent in.
+
+3. Reference the attachment in your `result_content` round note (e.g. *"Attached to this todo as output: `nine-proposal-deck-2026-05-04.pptx`"*) so the review log stays self-describing.
+
+**When NOT to attach:**
+- Pure text answers — those go in `result_content` markdown.
+- Wiki updates — they live in `wiki/` and get referenced by path.
+- Working notes that aren't deliverables to Will.
+
+**Confirming the upload:**
+The API response returns the new attachment records. Don't move on until the response shows `"kind":"output"` for each file. If the upload fails (connection refused, etc.), report the failure in the round note rather than silently leaving files only on disk.

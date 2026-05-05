@@ -8,6 +8,48 @@ Each entry: **what** was changed, **why**, and **which files** were modified.
 
 ---
 
+## Pass NANOCLAW_API_KEY into the main container (2026-05-05)
+
+**Problem:** The nightly orphan-worker cleanup task runs inside Sky (main)'s agent container and calls `DELETE /api/workers/:id` on the host. That endpoint requires Bearer auth (`NANOCLAW_API_KEY`), but containers were spawned without the key in their env, so every cleanup attempt got a 401 and orphaned workers piled up. The task script's `process.env.NANOCLAW_API_KEY || ''` resolved to empty (`hasApiKey: false`), no `Authorization` header was sent, and the host correctly rejected the calls.
+
+**Solution:** When `isMain === true`, inject `NANOCLAW_API_KEY` into the container env. Other groups don't get it because `/api/workers` is admin-only and they have no business calling it. The key is read from `process.env.NANOCLAW_API_KEY` first, then `.env` (mirroring how `api.ts` reads it on the server side).
+
+**Security note:** This is a self-issued auth token for nanoclaw's localhost-only admin API, not a third-party secret. Containers already have full IPC access to the host (register/delete groups, etc.) — this just lets them use the HTTP path too. The `host.docker.internal:3004` endpoint isn't reachable from outside the container's network namespace.
+
+**Changes:**
+
+- `src/api.ts`: Made `getApiKey()` exported so other modules can resolve the key the same way the auth check does.
+- `src/container-runner.ts`: Added `isMain` param to `buildContainerArgs`; injects `-e NANOCLAW_API_KEY=...` only for main. Imported `getApiKey` from `./api.js`.
+
+---
+
+## Delegate poll timeout raised to 25 min (2026-05-05)
+
+**Problem:** The `delegate` MCP tool in the agent-runner polls for the specialist's IPC result file with a 10-min hard limit. Specialists often need longer (multi-step research, code changes, analysis), and Sky was returning "Delegation timed out after 10 minutes" even though the specialist's container can run up to 30 min (`CONTAINER_TIMEOUT` default = 1,800,000 ms). Sky's per-group queue is serialized, so a stuck delegation also blocks any new messages from the user.
+
+**Solution:** Bump the poll `TIMEOUT_MS` from 600_000 (10 min) to 1_500_000 (25 min) — just under the container cap so the specialist always finishes (or fails cleanly) before the poller gives up. Updated the tool's docstring and the user-facing timeout message to match.
+
+**Trade-off:** Sky's container stays blocked for the duration of the delegation. Acceptable for now since the typical case is <10 min; revisit with a fire-and-forget variant if 25 min becomes a real ceiling.
+
+**Changes:**
+
+- `container/agent-runner/src/ipc-mcp-stdio.ts`: `TIMEOUT_MS = 1_500_000`, updated the tool description ("up to 25 minutes") and timeout error message.
+
+---
+
+## Default agent model is Opus 4.7 (2026-05-04)
+
+**Problem:** When a registered group's `containerConfig.model` was unset, the agent-runner passed `undefined` to the SDK, which fell back to Sonnet. Two groups (`linkedin-agent`, `alceon-project`) had no model set and were silently running on Sonnet.
+
+**Solution:** Default the agent-runner's model to `'claude-opus-4-7'` when `CLAUDE_MODEL` is unset. Per-group overrides via `containerConfig.model` still work as before.
+
+**Changes:**
+
+- `container/agent-runner/src/index.ts`: `model: process.env.CLAUDE_MODEL || 'claude-opus-4-7'`.
+- `src/types.ts`: Updated `ContainerConfig.model` comment to reflect the new default.
+
+---
+
 ## Self-service project agent bootstrapping (2026-04-07)
 
 **Purpose:** Let Sky (main) bootstrap new persistent project/specialist agents (like `aid-coo`, `naa-project`) end-to-end from a chat, without needing a host Claude Code session for the mechanical `cp` + DB insert + restart work.

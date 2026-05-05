@@ -67,7 +67,7 @@ export function setRunDelegationFn(fn: RunDelegationFn): void {
 // Auth
 // ---------------------------------------------------------------------------
 
-function getApiKey(): string {
+export function getApiKey(): string {
   const fromEnv = process.env.NANOCLAW_API_KEY;
   if (fromEnv) return fromEnv;
   const secrets = readEnvFile(['NANOCLAW_API_KEY']);

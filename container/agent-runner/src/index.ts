@@ -501,7 +501,7 @@ async function runQuery(
         'mcp__excalidraw__*',
       ],
       env: sdkEnv,
-      model: process.env.CLAUDE_MODEL || undefined,
+      model: process.env.CLAUDE_MODEL || 'claude-opus-4-7',
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       settingSources: ['project', 'user'],

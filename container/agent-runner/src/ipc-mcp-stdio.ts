@@ -677,7 +677,7 @@ server.tool(
 
 The specialist has NO access to your conversation history. Include everything they need in the prompt: topic, context, constraints, and any prior feedback.
 
-This tool blocks until the specialist completes (up to 10 minutes). The result is returned directly.`,
+This tool blocks until the specialist completes (up to 25 minutes). The result is returned directly.`,
   {
     target_group: z.string().describe('The folder name of the target specialist agent (e.g., "linkedin-agent")'),
     prompt: z.string().describe('The full prompt for the specialist — include all context they need'),
@@ -704,7 +704,7 @@ This tool blocks until the specialist completes (up to 10 minutes). The result i
     const INPUT_DIR = path.join(IPC_DIR, 'input');
     const resultFile = path.join(INPUT_DIR, `delegation_${delegationId}.json`);
     const POLL_MS = 500;
-    const TIMEOUT_MS = 600_000; // 10 minutes
+    const TIMEOUT_MS = 1_500_000; // 25 minutes (just under the 30-min container cap)
     const start = Date.now();
 
     while (Date.now() - start < TIMEOUT_MS) {
@@ -735,7 +735,7 @@ This tool blocks until the specialist completes (up to 10 minutes). The result i
     }
 
     return {
-      content: [{ type: 'text' as const, text: `Delegation to "${args.target_group}" timed out after 10 minutes.` }],
+      content: [{ type: 'text' as const, text: `Delegation to "${args.target_group}" timed out after 25 minutes.` }],
       isError: true,
     };
   },

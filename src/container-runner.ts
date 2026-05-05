@@ -17,6 +17,7 @@ import {
   TIMEZONE,
   TOME_DIR,
 } from './config.js';
+import { getApiKey } from './api.js';
 import { resolveGroupFolderPath, resolveGroupIpcPath } from './group-folder.js';
 import { logger } from './logger.js';
 import {
@@ -351,6 +352,7 @@ export async function buildContainerArgs(
   containerName: string,
   agentIdentifier?: string,
   model?: string,
+  isMain?: boolean,
 ): Promise<string[]> {
   const args: string[] = ['run', '-i', '--rm', '--name', containerName];
 
@@ -360,6 +362,17 @@ export async function buildContainerArgs(
   // Per-group model override (e.g. 'claude-opus-4-6')
   if (model) {
     args.push('-e', `CLAUDE_MODEL=${model}`);
+  }
+
+  // Main-group only: pass the NanoClaw HTTP API key so the agent can call
+  // back to the host (e.g., nightly orphan-worker cleanup hits DELETE
+  // /api/workers/:id which requires Bearer auth). Restricted to main since
+  // /api/workers is admin-only.
+  if (isMain) {
+    const nanoclawApiKey = getApiKey();
+    if (nanoclawApiKey) {
+      args.push('-e', `NANOCLAW_API_KEY=${nanoclawApiKey}`);
+    }
   }
 
   // Route API traffic through the credential proxy (containers never see real secrets)
@@ -431,6 +444,7 @@ export async function runContainerAgent(
     containerName,
     agentIdentifier,
     group.containerConfig?.model,
+    input.isMain,
   );
 
   logger.debug(
